@@ -52,18 +52,25 @@ class User extends Authenticatable
     public function messagesRecus(): HasMany { return $this->hasMany(Message::class, 'destinataire_id'); }
 
     public function getNomCompletAttribute(): string { return "{$this->prenom} {$this->nom}"; }
-    public function isDirecteur(): bool { return in_array($this->role, ['directeur', 'super_admin']); }
+    public function isFondateur(): bool { return $this->role === 'fondateur'; }
+    public function isDirecteur(): bool { return in_array($this->role, ['fondateur', 'directeur', 'super_admin'], true); }
 
     /** Direction d'établissement (sans accès aux clés d'archive). */
     public function isDirection(): bool
     {
-        return in_array($this->role, ['directeur', 'directeur_adjoint'], true);
+        return in_array($this->role, ['fondateur', 'directeur', 'directeur_adjoint'], true);
+    }
+
+    /** Peut administrer les utilisateurs de son établissement. */
+    public function canManageSchoolUsers(): bool
+    {
+        return in_array($this->role, ['fondateur', 'directeur', 'super_admin'], true);
     }
 
     /** Peut voir la clé de restauration affichée une fois à la clôture. */
     public function peutVoirCleArchive(): bool
     {
-        return in_array($this->role, ['super_admin', 'gestionnaire'], true);
+        return in_array($this->role, ['super_admin', 'fondateur', 'gestionnaire'], true);
     }
 
     public function isSuperAdmin(): bool { return $this->role === 'super_admin'; }
