@@ -61,6 +61,7 @@ class EtablissementAdminController extends Controller
             'directeur_telephone' => ['required', 'string', 'max:30', 'unique:users,telephone'],
             'directeur_nom'       => ['required', 'string', 'max:100'],
             'directeur_prenom'    => ['required', 'string', 'max:100'],
+            'directeur_role'      => ['nullable', Rule::in(['fondateur', 'directeur', 'directeur_adjoint', 'gestionnaire'])],
         ], [
             'directeur_email.required'     => "L'email du directeur est obligatoire (pour qu'il puisse se connecter).",
             'directeur_email.unique'       => 'Cet email est déjà utilisé par un autre utilisateur.',
@@ -107,6 +108,8 @@ class EtablissementAdminController extends Controller
         $etab = $result['etab'];
         $directeur = $result['directeur'];
 
+        $rolesLabels = $this->rolesLabels();
+
         return redirect()
             ->route('admin.etablissements.show', $etab)
             ->with('success', "Établissement « {$etab->nom} » créé avec succès.")
@@ -114,7 +117,7 @@ class EtablissementAdminController extends Controller
                 'email'    => $directeur->email,
                 'password' => '0000',
                 'nom'      => $directeur->prenom.' '.$directeur->nom,
-                'role'     => ucfirst($directeur->role),
+                'role'     => $rolesLabels[$directeur->role] ?? ucfirst($directeur->role),
             ]);
     }
 
@@ -191,7 +194,7 @@ class EtablissementAdminController extends Controller
     }
 
     /**
-     * Crée un compte utilisateur (direction/gestionnaire/comptable...) pour un établissement existant.
+     * Crée un compte utilisateur (fondateur/direction/gestionnaire/comptable...) pour un établissement existant.
      * Password initial = 0000, premiere_connexion = true (changement obligatoire).
      */
     public function storeUser(Request $request, Etablissement $etablissement)
@@ -203,7 +206,7 @@ class EtablissementAdminController extends Controller
             'prenom'    => ['required', 'string', 'max:100'],
             'email'     => ['required', 'email', 'max:120', 'unique:users,email'],
             'telephone' => ['required', 'string', 'max:30', 'unique:users,telephone'],
-            'role'      => ['required', Rule::in(['directeur', 'directeur_adjoint', 'gestionnaire', 'secretaire', 'comptable', 'censeur'])],
+            'role'      => ['required', Rule::in(['fondateur', 'directeur', 'directeur_adjoint', 'gestionnaire', 'secretaire', 'comptable', 'censeur'])],
         ], [
             'email.unique'     => 'Cet email est déjà utilisé.',
             'telephone.unique' => 'Ce téléphone est déjà utilisé.',
@@ -221,11 +224,7 @@ class EtablissementAdminController extends Controller
             'premiere_connexion' => true,
         ]);
 
-        $rolesLabels = [
-            'directeur' => 'Directeur', 'directeur_adjoint' => 'Directeur adjoint',
-            'gestionnaire' => 'Gestionnaire', 'secretaire' => 'Secrétaire',
-            'comptable' => 'Comptable', 'censeur' => 'Censeur',
-        ];
+        $rolesLabels = $this->rolesLabels();
 
         return redirect()
             ->route('admin.etablissements.show', $etablissement)
@@ -333,5 +332,19 @@ class EtablissementAdminController extends Controller
             'directeur_telephone' => ['nullable', 'string', 'max:30'],
             'actif' => ['nullable', 'boolean'],
         ]);
+    }
+
+    /** @return array<string, string> */
+    private function rolesLabels(): array
+    {
+        return [
+            'fondateur' => 'Fondateur',
+            'directeur' => 'Directeur',
+            'directeur_adjoint' => 'Directeur adjoint',
+            'gestionnaire' => 'Gestionnaire',
+            'secretaire' => 'Secrétaire',
+            'comptable' => 'Comptable',
+            'censeur' => 'Censeur',
+        ];
     }
 }
