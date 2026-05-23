@@ -119,18 +119,20 @@
             <p class="text-xs text-gray-400 mt-3 capitalize">{{ str_replace('_', ' ', $e->type) }} · {{ str_replace('_', ' ', $e->statut_juridique) }}</p>
         </div>
 
-        <div class="bg-white rounded-2xl border shadow-card overflow-hidden lg:col-span-2" x-data="{ showAddUser: {{ $users->isEmpty() ? 'true' : 'false' }} }">
-            <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <span class="font-bold">Utilisateurs <span class="text-xs text-gray-400 font-normal">({{ $users->count() }})</span></span>
-                <button @click="showAddUser = !showAddUser" type="button"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-purple-700 text-white text-xs font-bold shadow-card-violet hover:shadow-lg transition-all">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    <span x-text="showAddUser ? 'Fermer' : 'Ajouter un compte'"></span>
-                </button>
-            </div>
+        <div class="bg-white rounded-2xl border shadow-card overflow-hidden lg:col-span-2">
+            <details class="group" @if($users->isEmpty() || $errors->any()) open @endif>
+                <summary class="list-none cursor-pointer select-none">
+                    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+                        <span class="font-bold">Utilisateurs <span class="text-xs text-gray-400 font-normal">({{ $users->count() }})</span></span>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-purple-700 text-white text-xs font-bold shadow-card-violet hover:shadow-lg transition-all">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            <span>Ajouter un compte</span>
+                        </span>
+                    </div>
+                </summary>
 
-            {{-- ── Formulaire d'ajout (visible si pas d'utilisateurs ou sur clic) ── --}}
-            <div x-show="showAddUser" x-cloak x-transition class="border-b border-gray-100 bg-gradient-to-br from-violet-50/40 to-white p-5">
+                {{-- ── Formulaire d'ajout (visible si pas d'utilisateurs, si erreurs, ou au clic) ── --}}
+                <div class="border-b border-gray-100 bg-gradient-to-br from-violet-50/40 to-white p-5">
                 @if($errors->any())
                     <div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 mb-3">
                         @foreach($errors->all() as $err)<p>• {{ $err }}</p>@endforeach
@@ -196,6 +198,8 @@
                     </div>
                 </form>
             </div>
+
+            </details>
 
             {{-- ── Table utilisateurs ── --}}
             <div class="overflow-x-auto max-h-96 overflow-y-auto">
