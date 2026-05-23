@@ -2,6 +2,7 @@
     $e = $etablissement;
     $r = $recouvrement;
     $roles = [
+        'fondateur' => 'Fondateur',
         'directeur' => 'Directeur', 'directeur_adjoint' => 'Adjoint', 'gestionnaire' => 'Gestionnaire',
         'secretaire' => 'Secrétaire', 'comptable' => 'Comptable', 'censeur' => 'Censeur',
         'enseignant' => 'Enseignant', 'parent' => 'Parent', 'eleve' => 'Élève',
@@ -172,6 +173,7 @@
                         <label class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Rôle <span class="text-red-500">*</span></label>
                         <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
                             @foreach([
+                                'fondateur'         => ['Fondateur', '🏛️'],
                                 'directeur'         => ['Directeur', '👔'],
                                 'directeur_adjoint' => ['Adjoint', '👤'],
                                 'gestionnaire'      => ['Gestionnaire', '📊'],
