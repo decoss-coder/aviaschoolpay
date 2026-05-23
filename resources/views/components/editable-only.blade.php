@@ -1,0 +1,3 @@
+@editable
+    {{ $slot }}
+@endeditable

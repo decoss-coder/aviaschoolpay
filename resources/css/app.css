@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Bricolage Grotesque', 'DM Sans', system-ui, sans-serif;
+
+    /* Brand AviaSchoolPay (vert ivoirien) */
+    --color-brand-50:  #E8F5EE;
+    --color-brand-100: #C3E6D1;
+    --color-brand-200: #8FD4A8;
+    --color-brand-300: #5BBF7F;
+    --color-brand-400: #2DAA5B;
+    --color-brand-500: #0A7B3F;
+    --color-brand-600: #086832;
+    --color-brand-700: #065526;
+    --color-brand-800: #04421A;
+    --color-brand-900: #022F0E;
+
+    /* Gold (accents) */
+    --color-gold-50:  #FFF8E6;
+    --color-gold-100: #FFE9B3;
+    --color-gold-200: #FFD97F;
+    --color-gold-300: #FFC94C;
+    --color-gold-400: #E8A817;
+    --color-gold-500: #C48E0F;
+    --color-gold-600: #A37708;
+
+    /* Shadows custom (alignées sur tailwind CDN inline) */
+    --shadow-brand-glow:  0 8px 24px -8px rgba(10, 123, 63, 0.4), 0 2px 4px -1px rgba(10, 123, 63, 0.1);
+    --shadow-gold-glow:   0 8px 24px -8px rgba(232, 168, 23, 0.4), 0 2px 4px -1px rgba(232, 168, 23, 0.1);
+    --shadow-card:        0 1px 3px 0 rgba(10, 30, 20, 0.05), 0 1px 2px 0 rgba(10, 30, 20, 0.04);
+    --shadow-card-hover:  0 20px 40px -12px rgba(10, 30, 20, 0.12), 0 4px 8px -2px rgba(10, 30, 20, 0.05);
+    --shadow-card-brand:  0 8px 24px -8px rgba(10, 123, 63, 0.18), 0 2px 4px -1px rgba(10, 123, 63, 0.06);
+    --shadow-card-gold:   0 8px 24px -8px rgba(232, 168, 23, 0.18), 0 2px 4px -1px rgba(232, 168, 23, 0.06);
+    --shadow-card-blue:   0 8px 24px -8px rgba(59, 130, 246, 0.18), 0 2px 4px -1px rgba(59, 130, 246, 0.06);
+    --shadow-card-violet: 0 8px 24px -8px rgba(139, 92, 246, 0.18), 0 2px 4px -1px rgba(139, 92, 246, 0.06);
+}
+
+/* ============================================================
+   PAS D'OVERRIDE GLOBAL — chaque vue applique ses propres
+   classes Tailwind, à l'identique de eleves/create.blade.php
+   (la référence visuelle officielle du projet).
+   ============================================================ */
