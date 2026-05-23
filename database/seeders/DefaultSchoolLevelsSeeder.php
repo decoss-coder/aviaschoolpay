@@ -24,14 +24,15 @@ class DefaultSchoolLevelsSeeder extends Seeder
             return;
         }
 
+        // Valeurs compatibles avec l'énumération existante de la colonne niveaux.cycle.
         $niveaux = [
-            ['code' => '6EME',  'libelle' => '6e',         'cycle' => 'college', 'ordre' => 10],
-            ['code' => '5EME',  'libelle' => '5e',         'cycle' => 'college', 'ordre' => 20],
-            ['code' => '4EME',  'libelle' => '4e',         'cycle' => 'college', 'ordre' => 30],
-            ['code' => '3EME',  'libelle' => '3e',         'cycle' => 'college', 'ordre' => 40],
-            ['code' => '2NDE',  'libelle' => 'Seconde',    'cycle' => 'lycee',   'ordre' => 50],
-            ['code' => '1ERE',  'libelle' => 'Première',   'cycle' => 'lycee',   'ordre' => 60],
-            ['code' => 'TLE',   'libelle' => 'Terminale',  'cycle' => 'lycee',   'ordre' => 70],
+            ['code' => '6EME',  'libelle' => '6e',         'cycle' => 'premier_cycle', 'ordre' => 10],
+            ['code' => '5EME',  'libelle' => '5e',         'cycle' => 'premier_cycle', 'ordre' => 20],
+            ['code' => '4EME',  'libelle' => '4e',         'cycle' => 'premier_cycle', 'ordre' => 30],
+            ['code' => '3EME',  'libelle' => '3e',         'cycle' => 'premier_cycle', 'ordre' => 40],
+            ['code' => '2NDE',  'libelle' => 'Seconde',    'cycle' => 'second_cycle',  'ordre' => 50],
+            ['code' => '1ERE',  'libelle' => 'Première',   'cycle' => 'second_cycle',  'ordre' => 60],
+            ['code' => 'TLE',   'libelle' => 'Terminale',  'cycle' => 'second_cycle',  'ordre' => 70],
         ];
 
         $series = [
