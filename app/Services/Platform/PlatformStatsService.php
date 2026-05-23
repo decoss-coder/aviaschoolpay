@@ -7,6 +7,7 @@ use App\Models\AnneeScolaireRestaurationDemande;
 use App\Models\Eleve;
 use App\Models\Enseignant;
 use App\Models\Etablissement;
+use App\Models\Niveau;
 use App\Models\Notification;
 use App\Models\Paiement;
 use App\Models\Pointage;
@@ -202,6 +203,12 @@ class PlatformStatsService
             ->limit(50)
             ->get();
 
+        // Liste des niveaux de l'établissement
+        $niveaux = Niveau::where('etablissement_id', $etab->id)
+            ->orderBy('ordre')
+            ->orderBy('libelle')
+            ->get();
+
         // Derniers paiements (10)
         $paiementsRecents = Paiement::where('etablissement_id', $etab->id)
             ->where('statut', 'confirme')
@@ -225,6 +232,7 @@ class PlatformStatsService
             'dernier_paiement'   => $base['dernier_paiement'],
             'inscriptions_30j'   => $inscriptions30j,
             'users'              => $users,
+            'niveaux'            => $niveaux,
             'paiements_recents'  => $paiementsRecents,
             'annees'             => $annees,
         ];
