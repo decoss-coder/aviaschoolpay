@@ -10,6 +10,7 @@ use App\Models\Classe;
 use App\Models\Enseignant;
 use App\Models\Matiere;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class AffectationAdminController extends Controller
 {
@@ -61,11 +62,12 @@ class AffectationAdminController extends Controller
     public function create(Request $request)
     {
         $etabId = $request->user()->etablissement_id;
+        $this->synchroniserDisciplinesEnseignantsCommeMatieres($etabId);
 
         return view('admin.rh.affectations.create', [
             'enseignants' => Enseignant::where('etablissement_id', $etabId)->where('actif', true)->orderBy('nom')->orderBy('prenom')->get(),
             'classes' => Classe::where('etablissement_id', $etabId)->where('active', true)->orderBy('nom')->get(),
-            'matieres' => Matiere::where('etablissement_id', $etabId)->where('active', true)->orderBy('nom')->get(),
+            'matieres' => $this->matieresDisponiblesPourAffectation($etabId),
             'annees' => AnneeScolaire::where('etablissement_id', $etabId)->orderByDesc('date_debut')->get(),
         ]);
     }
@@ -73,6 +75,7 @@ class AffectationAdminController extends Controller
     public function store(AffectationRequest $request)
     {
         $etabId = $request->user()->etablissement_id;
+        $this->synchroniserDisciplinesEnseignantsCommeMatieres($etabId);
         $data = $request->validated();
 
         $this->assertScopedIdsBelongToEtab($data, $etabId);
@@ -101,12 +104,13 @@ class AffectationAdminController extends Controller
     {
         $etabId = $request->user()->etablissement_id;
         $this->ensureScopedAffectation($affectation, $etabId);
+        $this->synchroniserDisciplinesEnseignantsCommeMatieres($etabId);
 
         return view('admin.rh.affectations.edit', [
             'affectation' => $affectation,
             'enseignants' => Enseignant::where('etablissement_id', $etabId)->where('actif', true)->orderBy('nom')->orderBy('prenom')->get(),
             'classes' => Classe::where('etablissement_id', $etabId)->where('active', true)->orderBy('nom')->get(),
-            'matieres' => Matiere::where('etablissement_id', $etabId)->where('active', true)->orderBy('nom')->get(),
+            'matieres' => $this->matieresDisponiblesPourAffectation($etabId),
             'annees' => AnneeScolaire::where('etablissement_id', $etabId)->orderByDesc('date_debut')->get(),
         ]);
     }
@@ -115,6 +119,7 @@ class AffectationAdminController extends Controller
     {
         $etabId = $request->user()->etablissement_id;
         $this->ensureScopedAffectation($affectation, $etabId);
+        $this->synchroniserDisciplinesEnseignantsCommeMatieres($etabId);
 
         $data = $request->validated();
         $this->assertScopedIdsBelongToEtab($data, $etabId);
@@ -170,5 +175,76 @@ class AffectationAdminController extends Controller
         $anneeOk = AnneeScolaire::where('id', $data['annee_scolaire_id'])->where('etablissement_id', $etabId)->exists();
 
         abort_unless($enseignantOk && $classeOk && $matiereOk && $anneeOk, 403);
+    }
+
+    private function matieresDisponiblesPourAffectation(int $etabId)
+    {
+        return Matiere::where('etablissement_id', $etabId)
+            ->where('active', true)
+            ->orderBy('nom')
+            ->get();
+    }
+
+    private function synchroniserDisciplinesEnseignantsCommeMatieres(int $etabId): void
+    {
+        $enseignants = Enseignant::query()
+            ->where('etablissement_id', $etabId)
+            ->where('actif', true)
+            ->whereNotNull('specialite')
+            ->where('specialite', '!=', '')
+            ->get(['id', 'specialite']);
+
+        foreach ($enseignants as $enseignant) {
+            foreach ($this->extraireDisciplines($enseignant->specialite) as $discipline) {
+                $matiere = Matiere::query()
+                    ->where('etablissement_id', $etabId)
+                    ->whereRaw('LOWER(nom) = ?', [mb_strtolower($discipline)])
+                    ->first();
+
+                if ($matiere) {
+                    if (! $matiere->active) {
+                        $matiere->update(['active' => true]);
+                    }
+                    continue;
+                }
+
+                Matiere::create([
+                    'etablissement_id' => $etabId,
+                    'parent_matiere_id' => null,
+                    'nom' => $discipline,
+                    'code' => $this->genererCodeMatiere($discipline, $etabId),
+                    'coefficient_defaut' => 1,
+                    'poids_dans_parent' => null,
+                    'ordre' => 100,
+                    'groupe' => 'disciplines_enseignants',
+                    'active' => true,
+                ]);
+            }
+        }
+    }
+
+    private function extraireDisciplines(?string $value): array
+    {
+        return collect(explode(',', (string) $value))
+            ->map(fn ($item) => trim($item))
+            ->filter()
+            ->unique(fn ($item) => mb_strtolower($item))
+            ->values()
+            ->all();
+    }
+
+    private function genererCodeMatiere(string $discipline, int $etabId): string
+    {
+        $base = strtoupper(Str::slug($discipline, '_')) ?: 'MATIERE';
+        $base = Str::limit($base, 24, '');
+        $candidate = $base;
+        $counter = 1;
+
+        while (Matiere::where('etablissement_id', $etabId)->where('code', $candidate)->exists()) {
+            $candidate = Str::limit($base, 20, '') . '_' . $counter;
+            $counter++;
+        }
+
+        return $candidate;
     }
 }
