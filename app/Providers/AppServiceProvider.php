@@ -29,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->loadRoutesFrom(base_path('routes/school_access.php'));
         $this->loadRoutesFrom(base_path('routes/finance_impayes.php'));
+        $this->loadRoutesFrom(base_path('routes/finance_point_postes.php'));
 
         Gate::policy(Eleve::class, ElevePolicy::class);
         Paiement::observe(PaiementObserver::class);
