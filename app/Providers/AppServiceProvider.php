@@ -28,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadRoutesFrom(base_path('routes/school_access.php'));
+        $this->loadRoutesFrom(base_path('routes/finance_impayes.php'));
 
         Gate::policy(Eleve::class, ElevePolicy::class);
         Paiement::observe(PaiementObserver::class);
