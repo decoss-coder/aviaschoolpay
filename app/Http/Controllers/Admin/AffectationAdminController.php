@@ -198,7 +198,7 @@ class AffectationAdminController extends Controller
             foreach ($this->extraireDisciplines($enseignant->specialite) as $discipline) {
                 $matiere = Matiere::query()
                     ->where('etablissement_id', $etabId)
-                    ->whereRaw('LOWER(nom) = ?', [mb_strtolower($discipline)])
+                    ->whereRaw('LOWER(nom) = ?', [strtolower($discipline)])
                     ->first();
 
                 if ($matiere) {
@@ -228,7 +228,7 @@ class AffectationAdminController extends Controller
         return collect(explode(',', (string) $value))
             ->map(fn ($item) => trim($item))
             ->filter()
-            ->unique(fn ($item) => mb_strtolower($item))
+            ->unique(fn ($item) => strtolower($item))
             ->values()
             ->all();
     }
