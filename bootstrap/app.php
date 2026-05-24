@@ -1,5 +1,4 @@
 <?php
-//aviaschoolpay/bootstrap/app.php
 use App\Support\ApiEnvelope;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -12,14 +11,15 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
+        web: function (): void {
+            require __DIR__.'/../routes/web.php';
+            require __DIR__.'/../routes/eleve-statut-required.php';
+        },
         api: __DIR__.'/../routes/api_v1.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-
-        // ✅ Ajouter cette ligne
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'ecole.active' => \App\Http\Middleware\EnsureActiveEtablissement::class,
@@ -37,14 +37,12 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\EnforceAnneeReadOnly::class,
             \App\Http\Middleware\BlockedSchoolRoleAccess::class,
         ]);
-
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/v1*')) {
                 return ApiEnvelope::fail('Erreur de validation.', $e->errors(), 422);
             }
-
             return null;
         });
 
@@ -52,7 +50,6 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/v1*')) {
                 return ApiEnvelope::fail('Non authentifié.', [], 401);
             }
-
             return null;
         });
 
@@ -60,17 +57,14 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/v1*')) {
                 return ApiEnvelope::fail('Ressource introuvable.', [], 404);
             }
-
             return null;
         });
 
         $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
             if ($request->is('api/v1*') && ! $e instanceof ValidationException && ! $e instanceof NotFoundHttpException) {
                 $msg = $e->getMessage() ?: 'Erreur HTTP';
-
                 return ApiEnvelope::fail($msg, [], $e->getStatusCode());
             }
-
             return null;
         });
     })->create();
