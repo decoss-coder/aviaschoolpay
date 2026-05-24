@@ -125,7 +125,8 @@ class EleveImportController extends Controller
             $ligneNettoyee['matricule_remplacement_label'] = !$despsValide ? 'Remplacé par matricule interne' : null;
             $ligneNettoyee['nom'] = isset($ligne['nom']) ? mb_strtoupper(trim((string) $ligne['nom'])) : null;
             $ligneNettoyee['prenom'] = isset($ligne['prenom']) ? trim((string) $ligne['prenom']) : null;
-            $ligneNettoyee['sexe'] = in_array(($ligne['sexe'] ?? null), ['M', 'F'], true) ? $ligne['sexe'] : 'M';
+            $ligneNettoyee['sexe'] = in_array(($ligne['sexe'] ?? null), ['M', 'F'], true) ? $ligne['sexe'] : null;
+            $ligneNettoyee['sexe_a_corriger'] = empty($ligneNettoyee['sexe']);
             $ligneNettoyee['date_naissance'] = !empty($ligne['date_naissance']) ? $ligne['date_naissance'] : null;
             $ligneNettoyee['lieu_naissance'] = isset($ligne['lieu_naissance']) ? trim((string) $ligne['lieu_naissance']) : null;
 
@@ -183,7 +184,7 @@ class EleveImportController extends Controller
                 $parentData = ['parent_nom' => $donnee['parent_nom'] ?? null, 'parent_telephone' => $donnee['parent_telephone'] ?? null, 'parent_lien' => $donnee['parent_lien'] ?? null];
                 unset($donnee['parent_nom'], $donnee['parent_telephone'], $donnee['parent_lien']);
                 $rawStatut = $this->sanitizeRawStatut($donnee['raw_statut'] ?? '');
-                unset($donnee['raw_statut'], $donnee['matricule_desps_original'], $donnee['matricule_desps_invalide'], $donnee['matricule_interne_auto'], $donnee['matricule_remplacement_label']);
+                unset($donnee['raw_statut'], $donnee['matricule_desps_original'], $donnee['matricule_desps_invalide'], $donnee['matricule_interne_auto'], $donnee['matricule_remplacement_label'], $donnee['matricule_provenances'], $donnee['sexe_a_corriger']);
 
                 $donnee['etablissement_id'] = $etab->id; $donnee['user_id'] = null; $donnee['actif'] = true;
                 if ($classeId) { $donnee['classe_id'] = $classeId; $donnee['statut'] = 'inscrit'; } else { $donnee['classe_id'] = null; $donnee['statut'] = 'pre_inscrit'; }
@@ -279,9 +280,48 @@ class EleveImportController extends Controller
             $ligne['matricule_interne'] = trim((string) ($ligne['matricule_interne'] ?? ''));
             $ligne['matricule_interne_auto'] = !$despsValide;
             $ligne['matricule_remplacement_label'] = !$despsValide ? 'Remplacé par matricule interne' : null;
+            $ligne['sexe'] = in_array(($ligne['sexe'] ?? null), ['M', 'F'], true) ? $ligne['sexe'] : null;
+            $ligne['sexe_a_corriger'] = empty($ligne['sexe']);
         }
         unset($ligne);
-        return $this->parser->attribuerMatriculesInternesPreview($donnees, $etablissementId);
+
+        $donnees = $this->parser->attribuerMatriculesInternesPreview($donnees, $etablissementId);
+
+        foreach ($donnees as &$ligne) {
+            $lookup = $ligne['matricule_desps'] ?? $ligne['matricule_desps_original'] ?? $ligne['matricule_interne'] ?? null;
+            $ligne['matricule_provenances'] = $this->provenancesMatricule($lookup, $etablissementId);
+        }
+        unset($ligne);
+
+        return $donnees;
+    }
+
+    /** @return array<int, array<string, string|int|null|bool>> */
+    private function provenancesMatricule(?string $matricule, int $etablissementId): array
+    {
+        $matricule = strtoupper(preg_replace('/\s+/', '', trim((string) $matricule)));
+        if ($matricule === '') {
+            return [];
+        }
+
+        return Eleve::query()
+            ->with('etablissement:id,nom,code_desps,sigle')
+            ->where(function ($q) use ($matricule) {
+                $q->where('matricule_desps', $matricule)
+                  ->orWhere('matricule_interne', $matricule);
+            })
+            ->where('actif', true)
+            ->limit(5)
+            ->get()
+            ->map(fn (Eleve $e) => [
+                'eleve_id' => $e->id,
+                'nom' => trim(($e->prenom ?? '').' '.($e->nom ?? '')),
+                'ecole' => $e->etablissement?->nom,
+                'code' => $e->etablissement?->code_desps ?: $e->etablissement?->sigle,
+                'matricule_desps' => $e->matricule_desps,
+                'matricule_interne' => $e->matricule_interne,
+                'meme_ecole' => (int) $e->etablissement_id === (int) $etablissementId,
+            ])->values()->all();
     }
 
     private function sanitizeRawStatut(?string $value): string { $value = strtoupper(trim((string) $value)); return in_array($value, ['AFF', 'NAFF'], true) ? $value : ''; }
