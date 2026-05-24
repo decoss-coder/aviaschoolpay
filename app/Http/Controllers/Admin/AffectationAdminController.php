@@ -214,7 +214,7 @@ class AffectationAdminController extends Controller
                     'nom' => $discipline,
                     'code' => $this->genererCodeMatiere($discipline, $etabId),
                     'coefficient_defaut' => 1,
-                    'poids_dans_parent' => null,
+                    'poids_dans_parent' => 1,
                     'ordre' => 100,
                     'groupe' => 'disciplines_enseignants',
                     'active' => true,
