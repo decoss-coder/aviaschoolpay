@@ -3,7 +3,7 @@
 use App\Http\Controllers\SchoolAccessControlController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'password.changed'])
+Route::middleware(['web', 'auth', 'password.changed'])
     ->prefix('controle-acces')
     ->name('access-control.')
     ->group(function () {
