@@ -11,7 +11,9 @@ class EnsureEleveStatutIsSet
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->user()) {
+        $user = $request->user();
+
+        if (! $user) {
             return $next($request);
         }
 
@@ -25,7 +27,9 @@ class EnsureEleveStatutIsSet
             return $next($request);
         }
 
-        if ((int) $eleve->etablissement_id !== (int) $request->user()->etablissement_id) {
+        $etablissementId = $this->resolveUserEtablissementId($request);
+
+        if (! $etablissementId || (int) $eleve->etablissement_id !== (int) $etablissementId) {
             return $next($request);
         }
 
@@ -71,9 +75,26 @@ class EnsureEleveStatutIsSet
         return Eleve::find((int) $eleveId);
     }
 
+    private function resolveUserEtablissementId(Request $request): ?int
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        if (! empty($user->etablissement_id)) {
+            return (int) $user->etablissement_id;
+        }
+
+        $etablissement = $user->etablissement ?? null;
+
+        return $etablissement?->id ? (int) $etablissement->id : null;
+    }
+
     private function hasValidStatut(Eleve $eleve): bool
     {
-        return in_array($eleve->statut_eleve, [
+        return in_array(strtoupper(trim((string) $eleve->statut_eleve)), [
             Eleve::STATUT_ELEVE_AFFECTE,
             Eleve::STATUT_ELEVE_NON_AFFECTE,
         ], true);
