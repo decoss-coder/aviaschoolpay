@@ -28,12 +28,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'annee.courante' => \App\Http\Middleware\SetAnneeScolaireCourante::class,
             'etab.access' => \App\Http\Middleware\EnsureEtablissementAccess::class,
             'annee.readonly' => \App\Http\Middleware\EnforceAnneeReadOnly::class,
+            'school.access' => \App\Http\Middleware\BlockedSchoolRoleAccess::class,
         ]);
 
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\SetAnneeScolaireCourante::class,
             \App\Http\Middleware\EnsureEtablissementAccess::class,
             \App\Http\Middleware\EnforceAnneeReadOnly::class,
+            \App\Http\Middleware\BlockedSchoolRoleAccess::class,
         ]);
 
     })
