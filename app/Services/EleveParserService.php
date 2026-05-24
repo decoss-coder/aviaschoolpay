@@ -129,10 +129,9 @@ class EleveParserService
         $matriculeDespsInvalide = $matriculeOriginal !== '' && !$matriculeDespsValide;
 
         // 3. SEXE
+        // Si l'IA/OCR ne lit pas le sexe, on ne rejette plus la ligne :
+        // on laisse la cellule vide pour correction manuelle dans l'aperçu.
         $sexe = $this->normaliserSexe($ligne['sexe'] ?? $ligne['genre'] ?? '');
-        if (empty($sexe)) {
-            throw new \Exception("Sexe non reconnu. Valeurs acceptées : M, F, Masculin, Féminin, Garçon, Fille.");
-        }
 
         // 4. DATE DE NAISSANCE (optionnel)
         $dateNaissance = null;
@@ -150,7 +149,8 @@ class EleveParserService
             'matricule_remplacement_label' => null,
             'nom' => mb_strtoupper($nom),
             'prenom' => $this->formatterPrenoms($prenoms),
-            'sexe' => $sexe,
+            'sexe' => $sexe ?: null,
+            'sexe_a_corriger' => $sexe ? false : true,
             'date_naissance' => $dateNaissance,
             'lieu_naissance' => $this->nettoyerTexte($ligne['lieu_naissance'] ?? null),
             'nationalite' => $this->nettoyerTexte($ligne['nationalite'] ?? 'Ivoirienne'),
@@ -343,6 +343,7 @@ class EleveParserService
             'notes' => [
                 'Le matricule DESPS est optionnel : s’il est vide ou illisible, AviaSchoolPay attribue un matricule interne.',
                 'Le matricule DESPS officiel doit contenir 8 chiffres + 1 lettre, ex : 15195226N.',
+                'Si le sexe est absent ou illisible, la cellule reste vide dans l’aperçu pour correction manuelle.',
                 'Dans "Nom et prénoms", le premier mot est considéré comme le nom de famille',
                 'Pour les noms composés (TRA BI, KEI BI, etc.), vous pourrez corriger dans le preview',
                 'Le sexe accepte : M, F, Masculin, Féminin, Garçon, Fille',
