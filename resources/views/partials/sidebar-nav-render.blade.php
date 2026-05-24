@@ -1,3 +1,51 @@
+@if(request()->routeIs('eleves.import.preview'))
+<style>
+    /* Correction ciblée : aperçu import élèves.
+       On garde le style existant, mais on empêche les colonnes NOM / PRÉNOM(S)
+       d'être trop compressées après l'analyse IA/OCR. */
+    div[x-data="previewApp()"] .overflow-x-auto > table {
+        min-width: 1380px;
+        table-layout: fixed;
+    }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(1),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(1) { width: 44px; min-width: 44px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(2),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(2) { width: 58px; min-width: 58px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(3),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(3) { width: 145px; min-width: 145px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(4),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(4) { width: 190px; min-width: 190px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(5),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(5) { width: 245px; min-width: 245px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(6),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(6) { width: 92px; min-width: 92px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(7),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(7) { width: 165px; min-width: 165px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(8),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(8) { width: 190px; min-width: 190px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(9),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(9) { width: 280px; min-width: 280px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table th:nth-child(10),
+    div[x-data="previewApp()"] .overflow-x-auto > table td:nth-child(10) { width: 60px; min-width: 60px; }
+
+    div[x-data="previewApp()"] .overflow-x-auto > table input[type="text"] {
+        min-width: 100%;
+        overflow: visible;
+        text-overflow: clip;
+    }
+</style>
+@endif
+
 @php
     $currentUser = auth()->user();
     $role = $currentUser?->role;
