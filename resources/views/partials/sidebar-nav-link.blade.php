@@ -1,4 +1,26 @@
 @php
+    $blocked = false;
+    if (auth()->check()) {
+        try {
+            $patterns = collect((array) ($item['match'] ?? $item['r'] ?? []));
+            $blockedKeys = \App\Services\Access\SchoolRoleAccessService::blockedKeysFor(auth()->user());
+            $catalogue = \App\Services\Access\SchoolRoleAccessService::catalogue();
+
+            foreach ($blockedKeys as $blockedKey) {
+                $entry = $catalogue[$blockedKey] ?? null;
+                if (! $entry) continue;
+                foreach (($entry['routes'] ?? []) as $pattern) {
+                    if ($patterns->contains(fn ($itemPattern) => \Illuminate\Support\Str::is($pattern, $itemPattern) || \Illuminate\Support\Str::is($itemPattern, $pattern))) {
+                        $blocked = true;
+                        break 2;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $blocked = false;
+        }
+    }
+
     $active = is_array($item['match'])
         ? request()->routeIs(...$item['match'])
         : request()->routeIs($item['match']);
@@ -9,6 +31,8 @@
     }
     $compact = $compact ?? false;
 @endphp
+
+@if(! $blocked)
 <a href="{{ $navUrl }}"
    @click="if (window.matchMedia('(max-width: 1023px)').matches) mobileMenu = false"
    class="relative flex items-center gap-3 rounded-xl font-medium transition-all duration-200 group
@@ -26,3 +50,4 @@
     </svg>
     <span x-show="sidebarOpen" x-transition class="truncate">{{ $item['label'] }}</span>
 </a>
+@endif
