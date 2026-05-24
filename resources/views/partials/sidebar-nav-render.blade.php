@@ -1,3 +1,40 @@
+@php
+    $currentUser = auth()->user();
+    $role = $currentUser?->role;
+
+    $canSeeAccessControl = $currentUser && ($currentUser->isFondateur() || $currentUser->isSuperAdmin());
+    $canSeeUnpaidStudents = in_array($role, [
+        'fondateur', 'directeur', 'directeur_adjoint', 'gestionnaire', 'comptable', 'secretaire', 'censeur', 'super_admin'
+    ], true);
+
+    $extraItems = [];
+
+    if ($canSeeAccessControl) {
+        $extraItems[] = [
+            'r' => 'access-control.index',
+            'match' => 'access-control.*',
+            'label' => 'Contrôle des accès',
+            'd' => 'M12 11c0-1.105.895-2 2-2s2 .895 2 2m-2 4h.01M5 11V9a7 7 0 1114 0v2m-2 0H7a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2z',
+        ];
+    }
+
+    if ($canSeeUnpaidStudents) {
+        $extraItems[] = [
+            'r' => 'finances.impayes.index',
+            'match' => 'finances.impayes.*',
+            'label' => 'Élèves non soldés',
+            'd' => 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-1M9 11h6M9 15h4m4-1l2 2 4-4',
+        ];
+    }
+
+    if (! empty($extraItems)) {
+        $nav[] = [
+            'section' => 'Accès & recouvrement',
+            'items' => $extraItems,
+        ];
+    }
+@endphp
+
 @foreach($nav as $gIdx => $group)
 <div class="mb-1 {{ $gIdx > 0 ? 'mt-4' : 'mt-2' }}">
     <p class="px-3 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-[0.14em] flex items-center gap-1.5"
