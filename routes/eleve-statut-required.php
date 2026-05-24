@@ -13,6 +13,14 @@ Route::patch('eleves/{eleve}/statut-required', 'App\\Http\\Controllers\\EleveSta
     ->whereNumber('eleve')
     ->name('eleves.statut-required.update');
 
+Route::get('admin/rh/affectations/rapide', 'App\\Http\\Controllers\\Admin\\AffectationRapideController@create')
+    ->middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
+    ->name('admin.rh.affectations.rapide.create');
+
+Route::post('admin/rh/affectations/rapide', 'App\\Http\\Controllers\\Admin\\AffectationRapideController@store')
+    ->middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
+    ->name('admin.rh.affectations.rapide.store');
+
 foreach ([
     'eleves.show',
     'finances.eleve',
