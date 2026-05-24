@@ -11,10 +11,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: function (): void {
-            require __DIR__.'/../routes/web.php';
-            require __DIR__.'/../routes/eleve-statut-required.php';
-        },
+        web: [
+            __DIR__.'/../routes/web.php',
+            __DIR__.'/../routes/eleve-statut-required.php',
+        ],
         api: __DIR__.'/../routes/api_v1.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
