@@ -141,6 +141,7 @@ class EnseignantWebController extends Controller
                 $validated['photo_path'] = $request->file('photo')->store('enseignants/photos', 'public');
             }
 
+            $validated['matricule_mena'] = $this->resolveMatriculeMena($validated['matricule_mena'] ?? null, (int) $etab->id);
             $validated['specialite'] = $this->formatMatieres($validated['matieres'] ?? [], $validated['specialite'] ?? null);
             unset($validated['matieres']);
 
@@ -155,7 +156,7 @@ class EnseignantWebController extends Controller
             Enseignant::create($validated);
         });
 
-        return redirect()->route('enseignants.index')->with('success', 'Enseignant ajouté avec succès. Le compte utilisateur a été créé automatiquement.');
+        return redirect()->route('enseignants.index')->with('success', 'Enseignant ajouté avec succès. Le compte utilisateur et le matricule ont été créés automatiquement si nécessaire.');
     }
 
     public function show(Request $request, $id)
@@ -220,6 +221,7 @@ class EnseignantWebController extends Controller
                 $validated['photo_path'] = $request->file('photo')->store('enseignants/photos', 'public');
             }
 
+            $validated['matricule_mena'] = $this->resolveMatriculeMena($validated['matricule_mena'] ?? null, (int) $etab->id, (int) $enseignant->id);
             $validated['specialite'] = $this->formatMatieres($validated['matieres'] ?? [], $validated['specialite'] ?? null);
             unset($validated['matieres']);
 
@@ -354,6 +356,38 @@ class EnseignantWebController extends Controller
             $counter++;
         }
         return $candidate;
+    }
+
+    private function resolveMatriculeMena(?string $matricule, int $etablissementId, ?int $ignoreEnseignantId = null): string
+    {
+        $matricule = strtoupper(trim((string) $matricule));
+
+        if ($matricule !== '') {
+            return $matricule;
+        }
+
+        return $this->generateMatriculeMena($etablissementId, $ignoreEnseignantId);
+    }
+
+    private function generateMatriculeMena(int $etablissementId, ?int $ignoreEnseignantId = null): string
+    {
+        $prefix = 'ENS' . now()->format('y');
+
+        for ($i = 1; $i <= 9999; $i++) {
+            $candidate = $prefix . str_pad((string) $i, 4, '0', STR_PAD_LEFT);
+
+            $exists = Enseignant::query()
+                ->where('etablissement_id', $etablissementId)
+                ->where('matricule_mena', $candidate)
+                ->when($ignoreEnseignantId, fn ($q) => $q->where('id', '!=', $ignoreEnseignantId))
+                ->exists();
+
+            if (! $exists) {
+                return $candidate;
+            }
+        }
+
+        return $prefix . now()->format('mdHis');
     }
 
     private function formatMatieres(array $matieres, ?string $fallback = null): ?string
