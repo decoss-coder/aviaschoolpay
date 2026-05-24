@@ -3,7 +3,7 @@
 use App\Http\Controllers\FinanceImpayesController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'password.changed'])
+Route::middleware(['web', 'auth', 'password.changed'])
     ->prefix('finances/impayes')
     ->name('finances.impayes.')
     ->group(function () {
