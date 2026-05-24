@@ -56,7 +56,8 @@ class EleveParserService
             try {
                 $normalisee = $this->normaliserLigne($ligne, $etablissementId);
 
-                // Détection des doublons dans le même lot
+                // Détection des doublons DESPS uniquement si le matricule DESPS est officiel/valide.
+                // Si le matricule est absent ou mal lu par l'IA/OCR, la ligne reste importable avec un matricule interne.
                 if ($normalisee['matricule_desps']) {
                     if (isset($matriculesVus[$normalisee['matricule_desps']])) {
                         $erreurs[] = $this->formaterErreur($numeroLigne, $ligne,
@@ -67,7 +68,7 @@ class EleveParserService
                     $matriculesVus[$normalisee['matricule_desps']] = $numeroLigne;
                 }
 
-                // Vérification d'existence en base
+                // Vérification d'existence en base uniquement sur matricule DESPS valide.
                 if ($normalisee['matricule_desps']) {
                     $existe = Eleve::where('etablissement_id', $etablissementId)
                         ->where('matricule_desps', $normalisee['matricule_desps'])
@@ -87,6 +88,8 @@ class EleveParserService
                 $erreurs[] = $this->formaterErreur($numeroLigne, $ligne, $e->getMessage());
             }
         }
+
+        $valides = $this->attribuerMatriculesInternesPreview($valides, $etablissementId);
 
         return [
             'valides' => $valides,
@@ -116,11 +119,14 @@ class EleveParserService
             throw new \Exception("Impossible de séparer le nom et les prénoms. Format attendu : « NOM Prenom1 Prenom2 ».");
         }
 
-        // 2. MATRICULE DESPS (optionnel mais validé si présent)
-        $matriculeDesps = $this->nettoyerMatricule($ligne['matricule'] ?? '');
-        if (!empty($matriculeDesps) && !preg_match(self::REGEX_MATRICULE_DESPS, $matriculeDesps)) {
-            throw new \Exception("Matricule DESPS invalide : « {$matriculeDesps} ». Format attendu : 8 chiffres suivis d'une lettre majuscule (ex: 15195226N).");
-        }
+        // 2. MATRICULE DESPS
+        // Le DESPS reste officiel seulement s'il respecte exactement 8 chiffres + 1 lettre.
+        // S'il est vide, trop court, mal orthographié ou mal lu par l'IA, on ne bloque plus la ligne :
+        // on l'importe avec un matricule interne et on affiche la substitution dans le preview.
+        $matriculeOriginal = $this->nettoyerMatricule($ligne['matricule'] ?? '');
+        $matriculeDespsValide = $matriculeOriginal !== '' && preg_match(self::REGEX_MATRICULE_DESPS, $matriculeOriginal);
+        $matriculeDesps = $matriculeDespsValide ? $matriculeOriginal : null;
+        $matriculeDespsInvalide = $matriculeOriginal !== '' && !$matriculeDespsValide;
 
         // 3. SEXE
         $sexe = $this->normaliserSexe($ligne['sexe'] ?? $ligne['genre'] ?? '');
@@ -136,7 +142,12 @@ class EleveParserService
 
         // 5. RESTE (tout optionnel)
         return [
-            'matricule_desps' => $matriculeDesps ?: null,
+            'matricule_desps' => $matriculeDesps,
+            'matricule_desps_original' => $matriculeOriginal ?: null,
+            'matricule_desps_invalide' => $matriculeDespsInvalide,
+            'matricule_interne' => null,
+            'matricule_interne_auto' => !$matriculeDesps,
+            'matricule_remplacement_label' => null,
             'nom' => mb_strtoupper($nom),
             'prenom' => $this->formatterPrenoms($prenoms),
             'sexe' => $sexe,
@@ -153,6 +164,38 @@ class EleveParserService
             'statut' => 'pre_inscrit',
             'actif' => true,
         ];
+    }
+
+    /**
+     * Attribue un matricule interne prévisible aux lignes sans DESPS officiel.
+     * Le code est visible dans l'aperçu avant validation puis réutilisé à l'enregistrement.
+     */
+    public function attribuerMatriculesInternesPreview(array $lignes, int $etablissementId): array
+    {
+        $base = Eleve::genererMatricule($etablissementId);
+        $prefixe = substr($base, 0, -4);
+        $numero = (int) substr($base, -4);
+
+        foreach ($lignes as &$ligne) {
+            $desps = trim((string) ($ligne['matricule_desps'] ?? ''));
+            $interne = trim((string) ($ligne['matricule_interne'] ?? ''));
+
+            if ($desps === '' && $interne === '') {
+                $ligne['matricule_interne'] = $prefixe . str_pad((string) $numero, 4, '0', STR_PAD_LEFT);
+                $ligne['matricule_interne_auto'] = true;
+                $ligne['matricule_remplacement_label'] = 'Remplacé par matricule interne';
+                $numero++;
+            } elseif ($desps === '') {
+                $ligne['matricule_interne_auto'] = true;
+                $ligne['matricule_remplacement_label'] = 'Remplacé par matricule interne';
+            } else {
+                $ligne['matricule_interne_auto'] = (bool) ($ligne['matricule_interne_auto'] ?? false);
+                $ligne['matricule_remplacement_label'] = $ligne['matricule_remplacement_label'] ?? null;
+            }
+        }
+        unset($ligne);
+
+        return $lignes;
     }
 
     /**
@@ -298,7 +341,8 @@ class EleveParserService
                 ],
             ],
             'notes' => [
-                'Le matricule DESPS est optionnel mais recommandé (8 chiffres + 1 lettre, ex : 15195226N)',
+                'Le matricule DESPS est optionnel : s’il est vide ou illisible, AviaSchoolPay attribue un matricule interne.',
+                'Le matricule DESPS officiel doit contenir 8 chiffres + 1 lettre, ex : 15195226N.',
                 'Dans "Nom et prénoms", le premier mot est considéré comme le nom de famille',
                 'Pour les noms composés (TRA BI, KEI BI, etc.), vous pourrez corriger dans le preview',
                 'Le sexe accepte : M, F, Masculin, Féminin, Garçon, Fille',
