@@ -2,7 +2,7 @@
 
 @section('title', 'Gestion des niveaux')
 @section('page-title', 'Gestion des niveaux')
-@section('page-subtitle', 'Niveaux, cycles et tarifs par défaut')
+@section('page-subtitle', 'Niveaux, cycles, ordre et statut')
 
 @section('content')
 @include('partials.rh-admin-nav')
@@ -16,6 +16,11 @@
             </ul>
         </div>
     @endif
+
+    <div class="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-900">
+        <b>Important :</b> cette page sert uniquement à gérer les niveaux scolaires. Les montants de scolarité, inscription et réinscription se gèrent dans
+        <a href="{{ route('finances.tarifs') }}" class="font-extrabold underline">Grilles tarifaires</a>.
+    </div>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="rounded-2xl bg-white border border-brand-100 p-4 shadow-card-brand"><p class="text-xs text-gray-500 font-bold uppercase">Niveaux</p><p class="text-2xl font-extrabold text-gray-900">{{ $stats['total'] }}</p></div>
@@ -53,13 +58,6 @@
                     <input type="number" name="ordre" value="{{ old('ordre', 0) }}" min="0" class="w-full px-3 py-2.5 border border-brand-100 rounded-xl text-sm">
                 </div>
 
-                <div class="rounded-xl bg-gold-50 border border-gold-200 p-3 space-y-3">
-                    <p class="text-xs font-extrabold text-gold-800 uppercase">Tarifs par défaut du niveau</p>
-                    <input type="number" name="frais_scolarite_defaut" value="{{ old('frais_scolarite_defaut', 0) }}" min="0" placeholder="Scolarité" class="w-full px-3 py-2 border rounded-lg text-sm">
-                    <input type="number" name="frais_inscription_defaut" value="{{ old('frais_inscription_defaut', 0) }}" min="0" placeholder="Inscription" class="w-full px-3 py-2 border rounded-lg text-sm">
-                    <input type="number" name="frais_reinscription_defaut" value="{{ old('frais_reinscription_defaut', 0) }}" min="0" placeholder="Réinscription" class="w-full px-3 py-2 border rounded-lg text-sm">
-                </div>
-
                 <button class="w-full px-4 py-2.5 bg-brand-600 text-white rounded-xl font-bold">Ajouter le niveau</button>
             </form>
         </div>
@@ -68,7 +66,7 @@
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <h3 class="font-display text-lg font-extrabold text-gray-900">Niveaux existants</h3>
-                    <p class="text-xs text-gray-500">Les tarifs par défaut alimentent les nouvelles classes et peuvent être appliqués aux classes existantes.</p>
+                    <p class="text-xs text-gray-500">Modifiez ici uniquement le libellé, le cycle, l’ordre et le statut.</p>
                 </div>
             </div>
 
@@ -106,16 +104,10 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3 items-end">
-                            <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Scolarité</label><input type="number" name="frais_scolarite_defaut" value="{{ $niveau->frais_scolarite_defaut ?? 0 }}" min="0" class="w-full px-2 py-2 border rounded-lg text-sm"></div>
-                            <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Inscription</label><input type="number" name="frais_inscription_defaut" value="{{ $niveau->frais_inscription_defaut ?? 0 }}" min="0" class="w-full px-2 py-2 border rounded-lg text-sm"></div>
-                            <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Réinscription</label><input type="number" name="frais_reinscription_defaut" value="{{ $niveau->frais_reinscription_defaut ?? 0 }}" min="0" class="w-full px-2 py-2 border rounded-lg text-sm"></div>
-                            <label class="flex items-center gap-2 text-xs font-semibold text-gray-600"><input type="checkbox" name="appliquer_classes" value="1"> Appliquer aux classes</label>
-                        </div>
-
                         <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
                             <span class="text-xs text-gray-500">{{ $niveau->classes_count }} classe(s)</span>
                             <div class="flex items-center gap-2">
+                                <a href="{{ route('finances.tarifs') }}" class="px-3 py-2 bg-gold-50 border border-gold-200 text-gold-800 rounded-lg text-xs font-bold">Gérer les tarifs</a>
                                 <button class="px-3 py-2 bg-brand-600 text-white rounded-lg text-xs font-bold">Enregistrer</button>
                             </div>
                         </div>
