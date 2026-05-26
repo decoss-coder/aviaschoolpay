@@ -3,9 +3,8 @@
 @section('title', 'Créneaux horaires')
 
 @section('content')
-<div class="max-w-3xl mx-auto px-4 py-8" x-data="creneauxManager()">
+<div class="max-w-5xl mx-auto px-4 py-8" x-data="creneauxManager()">
 
-    {{-- Header --}}
     <div class="flex items-center justify-between mb-6">
         <div>
             <h1 class="font-display text-2xl font-extrabold text-gray-900">Créneaux horaires</h1>
@@ -28,8 +27,67 @@
             {{ session('error') }}
         </div>
     @endif
+    @if($errors->any())
+        <div class="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium">
+            <ul class="list-disc list-inside text-xs space-y-1">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
-    {{-- Liste actuelle --}}
+    <div class="bg-white rounded-2xl shadow-card border border-brand-100 mb-6 overflow-hidden">
+        <div class="px-5 py-4 border-b border-brand-100 flex items-center justify-between gap-3">
+            <div>
+                <h2 class="font-bold text-gray-800 text-sm uppercase tracking-wide">Créneaux par défaut</h2>
+                <p class="text-xs text-gray-500 mt-1">Chaque école peut charger un modèle, puis modifier ou ajouter ses créneaux manuellement.</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-5">
+            @foreach($presets as $key => $preset)
+                <form method="POST" action="{{ route('emploi-du-temps.creneaux.preset') }}" class="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 space-y-3">
+                    @csrf
+                    <input type="hidden" name="preset" value="{{ $key }}">
+                    <div>
+                        <h3 class="font-extrabold text-gray-900">{{ $preset['label'] }}</h3>
+                        <p class="text-xs text-gray-500 mt-1 leading-relaxed">{{ $preset['description'] }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white border border-gray-100 overflow-hidden">
+                        <table class="w-full text-xs">
+                            <tbody>
+                                @foreach(array_slice($preset['slots'], 0, 6) as $slot)
+                                    <tr class="border-b last:border-0">
+                                        <td class="px-2 py-1 font-bold text-gray-700">{{ $slot['libelle'] }}</td>
+                                        <td class="px-2 py-1 text-gray-500">{{ $slot['heure_debut'] }} → {{ $slot['heure_fin'] }}</td>
+                                        <td class="px-2 py-1 text-right text-gray-400">{{ $slot['type'] === 'cours' ? 'Cours' : ($slot['type'] === 'recreation' ? 'Récré.' : 'Pause') }}</td>
+                                    </tr>
+                                @endforeach
+                                @if(count($preset['slots']) > 6)
+                                    <tr><td colspan="3" class="px-2 py-1 text-center text-gray-400">+ {{ count($preset['slots']) - 6 }} autre(s) créneau(x)</td></tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700">
+                            <input type="radio" name="mode" value="append" checked>
+                            Ajouter à la suite
+                        </label>
+                        <label class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700">
+                            <input type="radio" name="mode" value="replace">
+                            Remplacer si possible
+                        </label>
+                    </div>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2 rounded-xl shadow-brand-glow transition">
+                        Appliquer ce modèle
+                    </button>
+                </form>
+            @endforeach
+        </div>
+    </div>
+
     <div class="bg-white rounded-2xl shadow-card border border-gray-100 mb-6 overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="font-bold text-gray-800 text-sm uppercase tracking-wide">Créneaux configurés</h2>
@@ -39,12 +97,10 @@
         <ul id="sortable-list" class="divide-y divide-gray-50">
             @forelse($creneaux as $c)
             <li class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 transition group" data-id="{{ $c->id }}">
-                {{-- Drag handle --}}
                 <div class="cursor-grab text-gray-300 hover:text-gray-500 flex-shrink-0">
                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
                 </div>
 
-                {{-- Type badge --}}
                 @php
                     $badgeColor = match($c->type) {
                         'recreation'    => 'bg-orange-100 text-orange-700',
@@ -59,7 +115,6 @@
                 @endphp
                 <span class="text-xs font-bold px-2 py-0.5 rounded-full {{ $badgeColor }} flex-shrink-0">{{ $typeLabel }}</span>
 
-                {{-- Infos --}}
                 <div class="flex-1 min-w-0">
                     <span class="font-semibold text-gray-800 text-sm">{{ $c->libelle }}</span>
                 </div>
@@ -69,7 +124,6 @@
                     {{ \Carbon\Carbon::parse($c->heure_fin)->format('H:i') }}
                 </span>
 
-                {{-- Actions --}}
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
                     <button @click="openEdit({{ $c }})"
                             class="p-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition">
@@ -86,15 +140,14 @@
             </li>
             @empty
             <li class="px-5 py-8 text-center text-sm text-gray-400">
-                Aucun créneau configuré. Ajoutez-en ci-dessous.
+                Aucun créneau configuré. Choisissez un modèle ci-dessus ou ajoutez un créneau ci-dessous.
             </li>
             @endforelse
         </ul>
     </div>
 
-    {{-- Formulaire d'ajout --}}
     <div class="bg-white rounded-2xl shadow-card border border-gray-100 p-5">
-        <h2 class="font-bold text-gray-800 text-sm uppercase tracking-wide mb-4">Ajouter un créneau</h2>
+        <h2 class="font-bold text-gray-800 text-sm uppercase tracking-wide mb-4">Ajouter un créneau manuel</h2>
         <form method="POST" action="{{ route('emploi-du-temps.creneaux.store') }}" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
             @csrf
             <div class="sm:col-span-1">
@@ -121,15 +174,13 @@
                 </select>
             </div>
             <div class="sm:col-span-4 flex justify-end">
-                <button type="submit"
-                        class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2 rounded-xl shadow-brand-glow transition">
+                <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2 rounded-xl shadow-brand-glow transition">
                     + Ajouter
                 </button>
             </div>
         </form>
     </div>
 
-    {{-- Modal édition --}}
     <div x-show="editOpen" x-cloak
          class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm"
          @click.self="editOpen = false">
@@ -168,8 +219,7 @@
                             class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition">
                         Annuler
                     </button>
-                    <button type="submit"
-                            class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2 rounded-xl shadow-brand-glow transition">
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2 rounded-xl shadow-brand-glow transition">
                         Enregistrer
                     </button>
                 </div>
