@@ -75,6 +75,13 @@
 
     $totalCoef = 0; $totalPoints = 0;
     $decision = $annuelle?->decision_finale ?: (((float)($annuelle?->moyenne_annuelle ?? $generale->moyenne_generale) >= 10) ? 'Admis(e)' : 'Redouble en cas de non orientation');
+
+    // Récapitulatif T1/T2/T3 : tous les trimestres de l'année + moyennes générales de l'élève
+    $tousTrimestres = \App\Models\Trimestre::where('annee_scolaire_id', $annee?->id)
+        ->orderBy('numero')->get();
+    $generalesParTrim = \App\Models\MoyenneGenerale::where('eleve_id', $eleve->id)
+        ->whereIn('trimestre_id', $tousTrimestres->pluck('id'))
+        ->get()->keyBy('trimestre_id');
 @endphp
 
 <style>
@@ -137,26 +144,53 @@
 
     <table style="margin-top:2px; margin-bottom:2px;">
         <tr>
-            <td style="width:50%; border-right:0;">
+            <td colspan="3" style="border-bottom:0;">
                 <div class="name">{{ strtoupper(trim(($eleve->prenom ?? '').' '.($eleve->nom ?? ''))) }}</div>
+            </td>
+            <td rowspan="5" style="width:25mm; text-align:center;">
+                @if($photoSrc)<img src="{{ $photoSrc }}" class="photo">@else<span class="photo-empty">PHOTO</span>@endif
+            </td>
+        </tr>
+        <tr>
+            <td style="width:30%; border-top:0; border-bottom:0;">
                 <span class="label">Matricule.</span> <span class="value">{{ $eleve->matricule_desps ?: $eleve->matricule_interne ?: '—' }}</span>
-                &nbsp;&nbsp; <span class="label">Classe:</span> <span class="value">{{ $classe->nom ?? '—' }}</span><br>
+            </td>
+            <td style="width:30%; border-top:0; border-bottom:0;">
+                <span class="label">Sexe:</span> <b>{{ strtoupper($eleve->sexe ?? '—') }}</b>
+            </td>
+            <td style="width:25%; border-top:0; border-bottom:0;">
+                <span class="label">Redoub.:</span> <b>{{ $eleve->redoublant ? 'oui' : 'non' }}</b>
+            </td>
+        </tr>
+        <tr>
+            <td style="border-top:0; border-bottom:0;">
+                <span class="label">Classe:</span> <span class="value">{{ $classe->nom ?? '—' }}</span>
+            </td>
+            <td style="border-top:0; border-bottom:0;">
+                <span class="label">Né(e) le:</span> <b>{{ $eleve->date_naissance?->format('d/m/Y') ?? '—' }}</b>
+            </td>
+            <td style="border-top:0; border-bottom:0;">
+                <span class="label">Régime:</span> <b>Non bo</b>
+            </td>
+        </tr>
+        <tr>
+            <td style="border-top:0; border-bottom:0;">
                 <span class="label">Effectif:</span> <span class="value">{{ $effectif ?: '—' }}</span>
             </td>
-            <td style="width:27%; border-left:0; border-right:0;">
-                <span class="label">Sexe:</span> <b>{{ strtoupper($eleve->sexe ?? '—') }}</b><br>
-                <span class="label">Né(e) le:</span> <b>{{ $eleve->date_naissance?->format('d/m/Y') ?? '—' }}</b><br>
-                <span class="label">À:</span> <b>{{ strtoupper($eleve->lieu_naissance ?? '—') }}</b><br>
+            <td style="border-top:0; border-bottom:0;">
+                <span class="label">À:</span> <b>{{ strtoupper($eleve->lieu_naissance ?? '—') }}</b>
+            </td>
+            <td style="border-top:0; border-bottom:0;">
+                <span class="label">Interne:</span> <b>non</b>
+            </td>
+        </tr>
+        <tr>
+            <td style="border-top:0;"></td>
+            <td style="border-top:0;">
                 <span class="label">Nationalité:</span> {{ $eleve->nationalite ?? '—' }}
             </td>
-            <td style="width:11%; border-left:0; border-right:0;">
-                <span class="label">Redub:</span> <b>{{ $eleve->redoublant ? 'oui' : 'non' }}</b><br>
-                <span class="label">Regime:</span> <b>Non bo</b><br>
-                <span class="label">Interne:</span> <b>non</b><br>
+            <td style="border-top:0;">
                 <span class="label">Affecté(e):</span> <b>{{ method_exists($eleve, 'estAffecte') && $eleve->estAffecte() ? 'oui' : 'non' }}</b>
-            </td>
-            <td style="width:12%; text-align:center;">
-                @if($photoSrc)<img src="{{ $photoSrc }}" class="photo">@else<span class="photo-empty">PHOTO</span>@endif
             </td>
         </tr>
     </table>
@@ -171,7 +205,7 @@
                 <th style="width:17%;" rowspan="2">NOM ET SIGNATURE DU PROF.</th>
             </tr>
             <tr>
-                <th>MOY/20</th><th>Coef.</th><th>M. COEF</th><th>RANG</th><th>Moy</th><th>RANG</th>
+                <th>MOY./20</th><th>Coef.</th><th>M. COEF</th><th>RANG</th><th>Moy Ann</th><th>RANG</th>
             </tr>
         </thead>
         <tbody>
@@ -261,7 +295,23 @@
             </td>
             <td style="width:28%;">
                 <div class="foot-title">Récapitulatif</div>
-                <table><tr><th>Moy.</th><th>C. M.</th><th>Rg</th></tr><tr><td class="num">{{ $fmt($generale->moyenne_generale,1) }}</td><td class="num">{{ $fmt($generale->total_points) }}</td><td class="num">{{ $rang($generale->rang) }}</td></tr><tr><td class="num">{{ $fmt($annuelle?->moyenne_annuelle,1) }}</td><td class="num">—</td><td class="num">{{ $rang($annuelle?->rang_annuel) }}</td></tr></table>
+                <table>
+                    <tr><th></th><th>Moy.</th><th>C.</th><th>M. C.</th><th>Rg</th></tr>
+                    @foreach($tousTrimestres as $t)
+                        @php
+                            $gT = $generalesParTrim->get($t->id);
+                            $coefT = (float) ($t->coefficient ?: 1);
+                            $mcT = $gT && $gT->moyenne_generale !== null ? (float) $gT->moyenne_generale * $coefT : null;
+                        @endphp
+                        <tr>
+                            <td class="num"><b>{{ $t->numero }}{{ $t->numero == 1 ? 'er' : 'è' }} T.</b></td>
+                            <td class="num">{{ $gT ? $fmt($gT->moyenne_generale) : '—' }}</td>
+                            <td class="num">{{ $fmt0($coefT) }}</td>
+                            <td class="num">{{ $fmt($mcT) }}</td>
+                            <td class="num">{{ $gT ? $rang($gT->rang) : '—' }}</td>
+                        </tr>
+                    @endforeach
+                </table>
                 <div class="foot-title" style="margin-top:4px;">Décision de fin d'année</div>
                 <div class="decision">{{ $decision }}</div>
             </td>
