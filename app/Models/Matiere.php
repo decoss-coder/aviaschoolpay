@@ -44,8 +44,15 @@ class Matiere extends Model
             ->orderBy('ordre')
             ->orderBy('code');
 
-        if ($this->doitMasquerSousDisciplinesPourClasseCourante()) {
+        $classe = $this->classeCouranteDepuisRoute();
+
+        if ($classe && ! $this->classeUtiliseSousDisciplines($classe)) {
             $relation->whereRaw('1 = 0');
+            return $relation;
+        }
+
+        if ($classe && $this->classeUtiliseSousDisciplines($classe) && $this->estFrancaisRacine()) {
+            $this->creerSousDisciplinesFrancaisPremierCycleSiAbsentes();
         }
 
         return $relation;
@@ -92,31 +99,27 @@ class Matiere extends Model
         return $this->hasManyThrough(Note::class, Evaluation::class, 'matiere_id', 'evaluation_id');
     }
 
-    private function doitMasquerSousDisciplinesPourClasseCourante(): bool
+    private function classeCouranteDepuisRoute(): ?Classe
     {
         if (! app()->bound('request') || ! request()->route()) {
-            return false;
+            return null;
         }
 
         $classeParam = request()->route('classe');
 
         if (! $classeParam) {
-            return false;
+            return null;
         }
-
-        $classe = null;
 
         if ($classeParam instanceof Classe) {
-            $classe = $classeParam;
-        } elseif (is_numeric($classeParam)) {
-            $classe = Classe::with('niveau')->find((int) $classeParam);
+            return $classeParam;
         }
 
-        if (! $classe) {
-            return false;
+        if (is_numeric($classeParam)) {
+            return Classe::with('niveau')->find((int) $classeParam);
         }
 
-        return ! $this->classeUtiliseSousDisciplines($classe);
+        return null;
     }
 
     private function classeUtiliseSousDisciplines(Classe $classe): bool
@@ -135,7 +138,76 @@ class Matiere extends Model
 
         $codeOuLibelle = $this->normaliserTexte(trim((string) ($niveau->code ?? '') . ' ' . (string) ($niveau->libelle ?? '')));
 
-        return preg_match('/(^|\s)(6|5|4|3)\s*(e|eme)?(\s|$)/', $codeOuLibelle) === 1;
+        return preg_match('/(^|\s)(6|5|4|3)\s*(e|eme|eme)?(\s|$)/', $codeOuLibelle) === 1;
+    }
+
+    private function estFrancaisRacine(): bool
+    {
+        if ($this->parent_matiere_id !== null) {
+            return false;
+        }
+
+        $text = $this->normaliserTexte(trim((string) $this->code . ' ' . (string) $this->nom));
+
+        return str_contains($text, 'francais')
+            || in_array($text, ['fr', 'fra', 'fran', 'franc'], true);
+    }
+
+    private function creerSousDisciplinesFrancaisPremierCycleSiAbsentes(): void
+    {
+        if (! $this->exists || ! $this->etablissement_id || $this->parent_matiere_id !== null) {
+            return;
+        }
+
+        $presets = [
+            ['code' => 'CF', 'nom' => 'Composition française', 'poids' => 3, 'ordre' => 1],
+            ['code' => 'OG', 'nom' => 'Orthographe et grammaire', 'poids' => 1, 'ordre' => 2],
+            ['code' => 'EO', 'nom' => 'Expression orale', 'poids' => 1, 'ordre' => 3],
+        ];
+
+        foreach ($presets as $preset) {
+            $existsForParent = self::query()
+                ->where('etablissement_id', $this->etablissement_id)
+                ->where('parent_matiere_id', $this->id)
+                ->where(function ($query) use ($preset) {
+                    $query->where('code', $preset['code'])
+                        ->orWhere('nom', $preset['nom']);
+                })
+                ->exists();
+
+            if ($existsForParent) {
+                continue;
+            }
+
+            self::create([
+                'etablissement_id' => $this->etablissement_id,
+                'parent_matiere_id' => $this->id,
+                'code' => $this->codeSousDisciplineDisponible($preset['code']),
+                'nom' => $preset['nom'],
+                'coefficient_defaut' => $this->coefficient_defaut ?? 1,
+                'poids_dans_parent' => $preset['poids'],
+                'ordre' => $preset['ordre'],
+                'groupe' => 'francais_premier_cycle',
+                'active' => true,
+            ]);
+        }
+    }
+
+    private function codeSousDisciplineDisponible(string $base): string
+    {
+        $candidate = $base;
+        $counter = 1;
+
+        while (self::query()
+            ->where('etablissement_id', $this->etablissement_id)
+            ->where('code', $candidate)
+            ->where('parent_matiere_id', '!=', $this->id)
+            ->exists()) {
+            $candidate = $base . '_' . $counter;
+            $counter++;
+        }
+
+        return $candidate;
     }
 
     private function normaliserTexte(string $value): string
