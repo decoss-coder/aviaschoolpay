@@ -94,10 +94,10 @@
 @endphp
 
 <style>
-    .bulletin { width:100%; font-family: DejaVu Sans, sans-serif; color:#000; font-size:7pt; line-height:1.05; }
-    .bulletin table { width:100%; border-collapse:collapse; }
-    .bulletin td, .bulletin th { border:1px solid #000; padding:1px 2px; vertical-align:middle; }
-    .no-border td { border:0 !important; }
+    .bulletin { width:100%; font-family: DejaVu Sans, sans-serif; color:#000; font-size:7.2pt; line-height:1.1; border:2px solid #000; padding:2mm; }
+    .bulletin table { width:100%; border-collapse:collapse; border:1.2px solid #000; }
+    .bulletin td, .bulletin th { border:1px solid #000; padding:2px 3px; vertical-align:middle; }
+    .no-border, .no-border td { border:0 !important; }
     .title { text-align:center; font-family: DejaVu Serif, serif; font-size:18pt; font-weight:900; letter-spacing:.4px; }
     .sub-title { text-align:center; font-size:10.5pt; font-weight:900; margin-top:1px; }
     .ministry { text-align:center; font-size:7.2pt; font-weight:900; text-transform:uppercase; line-height:1.05; }
