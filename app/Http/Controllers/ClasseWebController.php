@@ -103,6 +103,16 @@ class ClasseWebController extends Controller
         $data['effectif'] = 0;
         $data['active'] = $request->boolean('active', true);
 
+        $niveau = Niveau::where('id', $data['niveau_id'])
+            ->where('etablissement_id', $request->user()->etablissement_id)
+            ->first();
+
+        if ($niveau) {
+            $data['scolarite_annuelle'] = (int) ($niveau->frais_scolarite_defaut ?? 0);
+            $data['frais_inscription'] = (int) ($niveau->frais_inscription_defaut ?? 0);
+            $data['frais_reinscription'] = (int) ($niveau->frais_reinscription_defaut ?? 0);
+        }
+
         $classe = Classe::create($data);
 
         return redirect()->route('classes.show', $classe)
@@ -280,8 +290,8 @@ class ClasseWebController extends Controller
                 'capacite' => $validated['capacite'] ?? 30,
                 'effectif' => 0,
                 'scolarite_annuelle' => $validated['scolarite_annuelle'] ?? ($niveau->frais_scolarite_defaut ?? 0),
-                'frais_inscription' => $validated['frais_inscription'] ?? 0,
-                'frais_reinscription' => $validated['frais_reinscription'] ?? 0,
+                'frais_inscription' => $validated['frais_inscription'] ?? ($niveau->frais_inscription_defaut ?? 0),
+                'frais_reinscription' => $validated['frais_reinscription'] ?? ($niveau->frais_reinscription_defaut ?? 0),
                 'description' => $validated['description'] ?? null,
                 'active' => true,
             ]);
