@@ -9,7 +9,8 @@
     html, body { margin: 0; }
     body { font-family: DejaVu Sans, sans-serif; color: #000; line-height: 1.2;
            padding: @if($perPage === 1) 15mm @elseif($perPage === 2) 8mm @else 6mm @endif; }
-    .bulletin-wrap { padding-bottom: 1mm; }
+    /* Forcer l'empilement vertical (1 bulletin par ligne, jamais côte à côte) */
+    .bulletin-wrap { display: block; width: 100%; clear: both; float: none; padding-bottom: 1mm; page-break-inside: avoid; }
     .bulletin-wrap + .bulletin-wrap { margin-top: 3mm; padding-top: 3mm; border-top: 1.5px dashed #999; }
 
     /* === Scaling selon disposition === */
