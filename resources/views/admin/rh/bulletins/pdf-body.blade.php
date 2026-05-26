@@ -82,6 +82,15 @@
     $generalesParTrim = \App\Models\MoyenneGenerale::where('eleve_id', $eleve->id)
         ->whereIn('trimestre_id', $tousTrimestres->pluck('id'))
         ->get()->keyBy('trimestre_id');
+
+    // Date du jour en français
+    $moisFr = [1=>'janvier',2=>'février',3=>'mars',4=>'avril',5=>'mai',6=>'juin',7=>'juillet',8=>'août',9=>'septembre',10=>'octobre',11=>'novembre',12=>'décembre'];
+    $today = now();
+    $dateVisaFr = $today->day.' '.$moisFr[(int) $today->month].' '.$today->year;
+
+    // Suffixe ordinal du trimestre (1er, 2è, 3è...)
+    $numT = (int) ($trimestre->numero ?? 1);
+    $suffixT = $numT === 1 ? 'er' : 'è';
 @endphp
 
 <style>
@@ -112,6 +121,7 @@
     .decision { text-align:center; font-family: DejaVu Serif, serif; font-style:italic; font-weight:900; color:#6b0000; font-size:11pt; line-height:1.1; }
     .box { display:inline-block; width:8px; height:8px; border:1px solid #000; margin-right:3px; vertical-align:middle; text-align:center; line-height:7px; }
     .small { font-size:6.2pt; }
+    .eleve-row td { padding:0 2px !important; line-height:1.05; }
 </style>
 
 <div class="bulletin">
@@ -151,7 +161,7 @@
                 @if($photoSrc)<img src="{{ $photoSrc }}" class="photo">@else<span class="photo-empty">PHOTO</span>@endif
             </td>
         </tr>
-        <tr>
+        <tr class="eleve-row">
             <td style="width:30%; border-top:0; border-bottom:0;">
                 <span class="label">Matricule.</span> <span class="value">{{ $eleve->matricule_desps ?: $eleve->matricule_interne ?: '—' }}</span>
             </td>
@@ -162,7 +172,7 @@
                 <span class="label">Redoub.:</span> <b>{{ $eleve->redoublant ? 'oui' : 'non' }}</b>
             </td>
         </tr>
-        <tr>
+        <tr class="eleve-row">
             <td style="border-top:0; border-bottom:0;">
                 <span class="label">Classe:</span> <span class="value">{{ $classe->nom ?? '—' }}</span>
             </td>
@@ -173,7 +183,7 @@
                 <span class="label">Régime:</span> <b>Non bo</b>
             </td>
         </tr>
-        <tr>
+        <tr class="eleve-row">
             <td style="border-top:0; border-bottom:0;">
                 <span class="label">Effectif:</span> <span class="value">{{ $effectif ?: '—' }}</span>
             </td>
@@ -184,7 +194,7 @@
                 <span class="label">Interne:</span> <b>non</b>
             </td>
         </tr>
-        <tr>
+        <tr class="eleve-row">
             <td style="border-top:0;"></td>
             <td style="border-top:0;">
                 <span class="label">Nationalité:</span> {{ $eleve->nationalite ?? '—' }}
@@ -280,7 +290,7 @@
     <table style="margin-top:2px;">
         <tr>
             <td style="width:34%;">
-                <div class="foot-title">BILAN DU {{ $trimestre->numero ?? '' }}E TRIMESTRE</div>
+                <div class="foot-title">BILAN DU {{ $numT }}{{ strtoupper($suffixT) }} TRIMESTRE</div>
                 <table class="no-border"><tr><td style="width:35%;"><div class="big">{{ $fmt($generale->moyenne_generale, 1) }}</div></td><td>Rg : <b>{{ $generale->rang ?? '—' }}</b> / <b>{{ $effectif ?: '—' }}</b></td></tr></table>
                 <div style="border-top:1px solid #000; margin:2px 0;"></div>
                 <b>Distinctions / Sanctions</b><br>
@@ -320,7 +330,7 @@
                 <table class="no-border"><tr><td style="width:35%;"><div class="big">{{ $fmt($annuelle?->moyenne_annuelle, 2) }}</div></td><td>Rg : <b>{{ $annuelle?->rang_annuel ?? '—' }}</b> / <b>{{ $effectif ?: '—' }}</b></td></tr></table>
                 <div style="border-top:1px solid #000; margin:4px 0 8px;"></div>
                 <div class="foot-title">VISA DU CHEF D'ÉTABLISSEMENT</div>
-                <div style="height:24px; text-align:center; font-style:italic; padding-top:5px;">Fait à {{ $etab->ville ?? '—' }}, le {{ now()->format('d/m/Y') }}</div>
+                <div style="height:24px; text-align:center; font-style:italic; padding-top:5px;">Fait à {{ $etab->ville ?? '—' }}, le {{ $dateVisaFr }}</div>
                 <div style="height:30px;"></div>
                 <div style="text-align:center; font-weight:900;">{{ strtoupper($etab->directeur_nom ?? 'LE DIRECTEUR DES ÉTUDES') }}</div>
             </td>
