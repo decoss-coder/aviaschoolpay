@@ -114,8 +114,66 @@ class User extends Authenticatable
     public function enseignantActif(?int $etabId = null): ?Enseignant
     {
         $etabId = $etabId ?? $this->ecoleActiveId();
+
+        if (! $this->isEnseignant() && $this->canUseClassTeacherContext()) {
+            $enseignant = $this->enseignantDepuisClasseRoute($etabId);
+            if ($enseignant) {
+                return $enseignant;
+            }
+        }
+
         if (!$etabId) return $this->enseignant; // fallback : premier
+
         return $this->enseignants()->where('etablissement_id', $etabId)->where('actif', true)->first()
             ?? $this->enseignant; // dernier filet de sécurité
+    }
+
+    private function canUseClassTeacherContext(): bool
+    {
+        return in_array($this->role, [
+            'fondateur',
+            'super_admin',
+            'directeur',
+            'directeur_adjoint',
+            'gestionnaire',
+            'secretaire',
+            'comptable',
+            'censeur',
+        ], true);
+    }
+
+    private function enseignantDepuisClasseRoute(?int $etabId): ?Enseignant
+    {
+        if (! $etabId || ! app()->bound('request')) {
+            return null;
+        }
+
+        $classeParam = request()->route('classe');
+
+        if ($classeParam instanceof Classe) {
+            $classeId = (int) $classeParam->id;
+            $classeEtablissementId = (int) $classeParam->etablissement_id;
+        } elseif (is_numeric($classeParam)) {
+            $classe = Classe::find((int) $classeParam);
+            $classeId = $classe ? (int) $classe->id : null;
+            $classeEtablissementId = $classe ? (int) $classe->etablissement_id : null;
+        } else {
+            return null;
+        }
+
+        if (empty($classeId) || (int) $classeEtablissementId !== (int) $etabId) {
+            return null;
+        }
+
+        return Enseignant::query()
+            ->where('etablissement_id', $etabId)
+            ->where('actif', true)
+            ->whereHas('affectations', function ($query) use ($classeId) {
+                $query->where('classe_id', $classeId)
+                    ->where('active', true);
+            })
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->first();
     }
 }
