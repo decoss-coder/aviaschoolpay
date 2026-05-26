@@ -10,8 +10,10 @@
     <form method="POST" action="{{ route('classes.store') }}" class="space-y-6">
         @csrf
         <input type="hidden" name="annee_scolaire_id" value="{{ $annee->id }}">
+        <input type="hidden" name="scolarite_annuelle" value="0">
+        <input type="hidden" name="frais_inscription" value="0">
+        <input type="hidden" name="frais_reinscription" value="0">
 
-        {{-- Retour --}}
         <div class="mb-4">
             <a href="{{ route('classes.index') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-brand-600 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
@@ -19,7 +21,6 @@
             </a>
         </div>
 
-        {{-- Erreurs de validation --}}
         @if($errors->any())
         <div class="bg-gradient-to-r from-red-50 to-red-100/50 border border-red-200 rounded-xl p-4 text-red-800 text-sm">
             <p class="font-bold mb-1">Merci de corriger les erreurs suivantes :</p>
@@ -34,7 +35,6 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 space-y-6">
 
-                {{-- SECTION 1 : IDENTITÉ --}}
                 <div class="relative overflow-hidden bg-gradient-to-br from-white via-white to-brand-50/30 rounded-2xl border border-brand-100/60 shadow-card-brand p-6">
                     <div class="absolute -top-10 -right-10 w-40 h-40 bg-brand-200/20 rounded-full blur-3xl"></div>
                     <div class="relative flex items-center gap-3 mb-5 pb-4 border-b border-brand-100/60">
@@ -54,11 +54,12 @@
                                     class="w-full px-3 py-2.5 bg-white border border-brand-100 rounded-xl text-sm focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none shadow-sm cursor-pointer">
                                 <option value="">Sélectionner un niveau...</option>
                                 @foreach($niveaux as $niveau)
-                                    <option value="{{ $niveau->id }}" data-nom="{{ $niveau->code }}" data-cycle="{{ $niveau->cycle ?? '' }}" {{ $niveauPreselect == $niveau->id ? 'selected' : '' }}>
+                                    <option value="{{ $niveau->id }}" data-nom="{{ $niveau->code }}" data-cycle="{{ $niveau->cycle ?? '' }}" data-scolarite="{{ (int) ($niveau->frais_scolarite_defaut ?? 0) }}" data-inscription="{{ (int) ($niveau->frais_inscription_defaut ?? 0) }}" data-reinscription="{{ (int) ($niveau->frais_reinscription_defaut ?? 0) }}" {{ $niveauPreselect == $niveau->id ? 'selected' : '' }}>
                                         {{ $niveau->libelle }}
                                     </option>
                                 @endforeach
                             </select>
+                            <p class="text-[10px] text-gray-400 mt-1">Les tarifs sont repris automatiquement depuis le niveau.</p>
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Série <span class="text-gray-400 font-medium">(optionnel)</span></label>
@@ -69,7 +70,7 @@
                                     <option value="{{ $serie->id }}">{{ $serie->code }}</option>
                                 @endforeach
                             </select>
-                            <p class="text-[10px] text-gray-400 mt-1">Requis uniquement pour le lycée (A, C, D...)</p>
+                            <p class="text-[10px] text-gray-400 mt-1">Requis uniquement pour le lycée (A, C, D...).</p>
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Nom de la classe <span class="text-red-500">*</span></label>
@@ -87,7 +88,6 @@
                     </div>
                 </div>
 
-                {{-- SECTION 2 : CAPACITÉ & PROF PRINCIPAL --}}
                 <div class="relative overflow-hidden bg-gradient-to-br from-white via-white to-blue-50/30 rounded-2xl border border-blue-100/60 shadow-card-blue p-6">
                     <div class="absolute -top-10 -left-10 w-40 h-40 bg-blue-200/20 rounded-full blur-3xl"></div>
                     <div class="relative flex items-center gap-3 mb-5 pb-4 border-b border-blue-100/60">
@@ -126,54 +126,13 @@
                     </div>
                 </div>
 
-                {{-- SECTION 3 : TARIFICATION --}}
-                <div class="relative overflow-hidden bg-gradient-to-br from-white via-white to-gold-50/40 rounded-2xl border border-gold-200/60 shadow-card-gold p-6">
-                    <div class="absolute -top-10 -right-10 w-48 h-48 bg-gold-200/25 rounded-full blur-3xl"></div>
-                    <div class="relative flex items-center gap-3 mb-5 pb-4 border-b border-gold-200/60">
-                        <div class="w-10 h-10 bg-gradient-to-br from-gold-300 to-gold-500 rounded-xl flex items-center justify-center shadow-gold-glow">
-                            <span class="font-display text-white font-extrabold text-sm">3</span>
-                        </div>
-                        <div>
-                            <h3 class="font-display text-base font-extrabold text-gray-900">Tarification de la classe</h3>
-                            <p class="text-xs text-gray-500 mt-0.5">Scolarité et frais appliqués aux élèves</p>
-                        </div>
-                    </div>
-
-                    <div class="relative grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Scolarité annuelle <span class="text-red-500">*</span></label>
-                            <div class="relative">
-                                <input type="number" name="scolarite_annuelle" x-model.number="scolariteAnnuelle" required min="0" step="1000" value="0"
-                                       class="w-full px-3 py-2.5 pr-12 bg-white border border-gold-200 rounded-xl text-sm font-bold focus:border-gold-400 focus:ring-2 focus:ring-gold-100 outline-none shadow-sm">
-                                <span class="absolute right-3 top-2.5 text-[11px] font-bold text-gold-600">FCFA</span>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Frais inscription</label>
-                            <div class="relative">
-                                <input type="number" name="frais_inscription" x-model.number="fraisInscription" min="0" step="1000" value="0"
-                                       class="w-full px-3 py-2.5 pr-12 bg-white border border-gold-200 rounded-xl text-sm font-bold focus:border-gold-400 focus:ring-2 focus:ring-gold-100 outline-none shadow-sm">
-                                <span class="absolute right-3 top-2.5 text-[11px] font-bold text-gold-600">FCFA</span>
-                            </div>
-                            <p class="text-[10px] text-gray-400 mt-1">Nouveaux élèves</p>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Frais réinscription</label>
-                            <div class="relative">
-                                <input type="number" name="frais_reinscription" x-model.number="fraisReinscription" min="0" step="1000" value="0"
-                                       class="w-full px-3 py-2.5 pr-12 bg-white border border-gold-200 rounded-xl text-sm font-bold focus:border-gold-400 focus:ring-2 focus:ring-gold-100 outline-none shadow-sm">
-                                <span class="absolute right-3 top-2.5 text-[11px] font-bold text-gold-600">FCFA</span>
-                            </div>
-                            <p class="text-[10px] text-gray-400 mt-1">Anciens élèves</p>
-                        </div>
-                    </div>
+                <div class="rounded-2xl border border-gold-200 bg-gold-50 px-5 py-4 text-sm text-gold-900">
+                    <b>Tarification retirée de cette page :</b> la scolarité, l’inscription et la réinscription se règlent maintenant dans <b>Gestion des niveaux</b> ou <b>Grilles tarifaires</b>, afin d’éviter les erreurs classe par classe.
                 </div>
             </div>
 
-            {{-- SIDEBAR : PREVIEW --}}
             <div class="lg:col-span-1">
                 <div class="sticky top-20 space-y-4">
-                    {{-- Preview card --}}
                     <div class="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 rounded-2xl shadow-brand-glow p-5 text-white">
                         <div class="absolute -top-10 -right-10 w-32 h-32 bg-gold-400/20 rounded-full blur-3xl"></div>
                         <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-300 to-gold-500"></div>
@@ -189,15 +148,15 @@
                                     <span class="font-display text-base font-extrabold" x-text="(capacite || 0) + ' élèves'"></span>
                                 </div>
                                 <div class="flex items-center justify-between">
-                                    <span class="text-[11px] text-brand-100 font-medium">Scolarité</span>
+                                    <span class="text-[11px] text-brand-100 font-medium">Scolarité niveau</span>
                                     <span class="font-display text-base font-extrabold text-gold-200" x-text="formatAmount(scolariteAnnuelle) + ' F'"></span>
                                 </div>
                                 <div class="flex items-center justify-between">
-                                    <span class="text-[11px] text-brand-100 font-medium">Inscription</span>
+                                    <span class="text-[11px] text-brand-100 font-medium">Inscription niveau</span>
                                     <span class="text-sm font-bold" x-text="formatAmount(fraisInscription) + ' F'"></span>
                                 </div>
                                 <div class="flex items-center justify-between">
-                                    <span class="text-[11px] text-brand-100 font-medium">Réinscription</span>
+                                    <span class="text-[11px] text-brand-100 font-medium">Réinscription niveau</span>
                                     <span class="text-sm font-bold" x-text="formatAmount(fraisReinscription) + ' F'"></span>
                                 </div>
                             </div>
@@ -209,13 +168,12 @@
                         </div>
                     </div>
 
-                    {{-- Conseils --}}
                     <div class="bg-gradient-to-br from-gold-50 to-white border border-gold-200/60 rounded-xl p-4">
                         <div class="flex items-start gap-2">
                             <svg class="w-4 h-4 text-gold-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             <div>
                                 <p class="text-[11px] font-bold text-gold-700">Bon à savoir</p>
-                                <p class="text-[11px] text-gray-600 mt-1 leading-relaxed">La tarification peut être modifiée à tout moment. Elle ne s'applique qu'aux nouvelles inscriptions.</p>
+                                <p class="text-[11px] text-gray-600 mt-1 leading-relaxed">Pour modifier les montants, utilisez le menu Gestion des niveaux ou Grilles tarifaires.</p>
                             </div>
                         </div>
                     </div>
@@ -223,7 +181,6 @@
             </div>
         </div>
 
-        {{-- Actions --}}
         <div class="flex items-center justify-between gap-3 pt-2">
             <a href="{{ route('classes.index') }}"
                class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 text-[13px] font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all">
@@ -261,6 +218,9 @@ function classeForm() {
             const select = document.querySelector('select[name="niveau_id"]');
             const opt = select.options[select.selectedIndex];
             this.niveauNom = opt.dataset.nom || '';
+            this.scolariteAnnuelle = Number(opt.dataset.scolarite || 0);
+            this.fraisInscription = Number(opt.dataset.inscription || 0);
+            this.fraisReinscription = Number(opt.dataset.reinscription || 0);
         },
         formatAmount(n) {
             return new Intl.NumberFormat('fr-FR').format(n || 0);
