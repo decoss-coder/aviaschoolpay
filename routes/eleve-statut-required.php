@@ -27,6 +27,12 @@ Route::middleware(['auth', 'password.changed', 'role:super_admin,directeur,direc
     ->group(function () {
         Route::post('/creneaux/preset', 'App\Http\Controllers\CreneauWebController@applyPreset')
             ->name('creneaux.preset');
+
+        Route::get('/salles', 'App\Http\Controllers\SalleWebController@index')->name('salles.index');
+        Route::post('/salles', 'App\Http\Controllers\SalleWebController@store')->name('salles.store');
+        Route::patch('/salles/{salle}', 'App\Http\Controllers\SalleWebController@update')->name('salles.update');
+        Route::post('/salles/{salle}/toggle', 'App\Http\Controllers\SalleWebController@toggle')->name('salles.toggle');
+        Route::delete('/salles/{salle}', 'App\Http\Controllers\SalleWebController@destroy')->name('salles.destroy');
     });
 
 Route::middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
