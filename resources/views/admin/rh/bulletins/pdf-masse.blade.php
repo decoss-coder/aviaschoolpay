@@ -5,9 +5,10 @@
 <title>Bulletins en lot — {{ $classe->nom }}</title>
 @php $perPage = (int) $disposition; @endphp
 <style>
-    @page { margin: @if($perPage === 1) 12mm 12mm @else 8mm 10mm @endif; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { margin: 0; }
+    html, body { margin: 0; }
     body { font-family: DejaVu Sans, sans-serif; color: #000; line-height: 1.2;
+           padding: @if($perPage === 1) 15mm @else 10mm @endif;
            @if($perPage === 1) font-size: 8.5pt; @elseif($perPage === 2) font-size: 7pt; @else font-size: 6pt; @endif }
     .bulletin-wrap { padding-bottom: 2mm; }
     .bulletin-wrap + .bulletin-wrap { margin-top: 3mm; padding-top: 3mm; border-top: 2px dashed #999; }

@@ -95,7 +95,7 @@
 
 <style>
     /* === Style classique noir & blanc — reproduction fidèle du bulletin officiel === */
-    .bulletin { width:100%; font-family: DejaVu Sans, sans-serif; color:#000; font-size:7.2pt; line-height:1.15; border:1.5px solid #000; padding:0; background:#fff; }
+    .bulletin { width:100%; font-family: DejaVu Sans, sans-serif; color:#000; font-size:7.2pt; line-height:1.15; border:1.5px solid #000; padding:0; background:#fff; margin:0 auto; }
     .bulletin table { width:100%; border-collapse:collapse; }
     .bulletin td, .bulletin th { border:0.75px solid #000; padding:1.5px 3px; vertical-align:middle; }
     .no-border, .no-border td { border:0 !important; }
