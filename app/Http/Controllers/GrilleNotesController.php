@@ -16,14 +16,8 @@ use App\Models\TypeEvaluation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
-/**
- * Grille de notes type spreadsheet — enseignant.
- *
- * - Chaque évaluation = une colonne configurable (titre, type, barème, coef).
- * - Cellules de notes éditables, auto-save AJAX.
- * - Support sous-disciplines Français premier cycle : CF / OG / EO.
- */
 class GrilleNotesController extends Controller
 {
     private function enseignant(Request $request): Enseignant
@@ -141,10 +135,7 @@ class GrilleNotesController extends Controller
         }
 
         $this->assurerTypesEvaluationParDefaut((int) $etab->id);
-        $typesEval = TypeEvaluation::where('etablissement_id', $etab->id)
-            ->where('active', true)
-            ->orderBy('id')
-            ->get();
+        $typesEval = $this->typesEvaluationActifs((int) $etab->id);
 
         return view('mon-espace.grille-notes', compact(
             'ens', 'classe', 'annee', 'matieres', 'matiere', 'matiereId',
@@ -170,10 +161,7 @@ class GrilleNotesController extends Controller
         $etab = \App\Models\Etablissement::find($request->user()->ecoleActiveId());
         abort_if(!$etab, 403, 'Établissement introuvable.');
 
-        $typeOk = TypeEvaluation::where('id', $data['type_evaluation_id'])
-            ->where('etablissement_id', $etab->id)
-            ->where('active', true)
-            ->exists();
+        $typeOk = $this->typeEvaluationEstActif((int) $etab->id, (int) $data['type_evaluation_id']);
         abort_if(!$typeOk, 422, 'Type d\'évaluation invalide pour cette école.');
 
         $this->authorizeClasseMatiere($ens, $classe, $data['matiere_id']);
@@ -491,9 +479,35 @@ class GrilleNotesController extends Controller
         }
     }
 
+    private function typesEvaluationActifs(int $etabId)
+    {
+        $query = TypeEvaluation::where('etablissement_id', $etabId);
+        $this->appliquerFiltreActifTypes($query);
+        return $query->orderBy('id')->get();
+    }
+
+    private function typeEvaluationEstActif(int $etabId, int $typeId): bool
+    {
+        $query = TypeEvaluation::where('id', $typeId)->where('etablissement_id', $etabId);
+        $this->appliquerFiltreActifTypes($query);
+        return $query->exists();
+    }
+
+    private function appliquerFiltreActifTypes($query): void
+    {
+        if (Schema::hasColumn('types_evaluation', 'actif')) {
+            $query->where('actif', true);
+            return;
+        }
+
+        if (Schema::hasColumn('types_evaluation', 'active')) {
+            $query->where('active', true);
+        }
+    }
+
     private function assurerTypesEvaluationParDefaut(int $etabId): void
     {
-        if (TypeEvaluation::where('etablissement_id', $etabId)->where('active', true)->exists()) {
+        if ($this->typesEvaluationActifs($etabId)->isNotEmpty()) {
             return;
         }
 
@@ -504,15 +518,22 @@ class GrilleNotesController extends Controller
             ['code' => 'ORAL', 'nom' => 'Oral', 'coef' => 1, 'sur' => 20],
         ];
 
+        $activeColumn = Schema::hasColumn('types_evaluation', 'actif') ? 'actif' : (Schema::hasColumn('types_evaluation', 'active') ? 'active' : null);
+
         foreach ($types as $type) {
-            TypeEvaluation::firstOrCreate(
+            $payload = [
+                'nom' => $type['nom'],
+                'coefficient_defaut' => $type['coef'],
+                'note_sur_defaut' => $type['sur'],
+            ];
+
+            if ($activeColumn) {
+                $payload[$activeColumn] = true;
+            }
+
+            TypeEvaluation::updateOrCreate(
                 ['etablissement_id' => $etabId, 'code' => $type['code']],
-                [
-                    'nom' => $type['nom'],
-                    'coefficient_defaut' => $type['coef'],
-                    'note_sur_defaut' => $type['sur'],
-                    'active' => true,
-                ]
+                $payload
             );
         }
     }
