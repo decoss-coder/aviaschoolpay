@@ -105,8 +105,9 @@
     .name { font-size:13pt; font-weight:900; color:#1d4e89; text-transform:uppercase; letter-spacing:.2px; }
     .label { font-size:6.4pt; }
     .value { font-size:8pt; font-weight:900; }
-    .photo { width:24mm; height:27mm; object-fit:cover; border:1px solid #999; }
-    .photo-empty { width:24mm; height:27mm; border:1px solid #aaa; display:inline-block; text-align:center; line-height:27mm; color:#777; }
+    .photo { width:24mm; height:27mm; object-fit:cover; border:1px solid #000; }
+    .photo-empty { width:24mm; height:27mm; border:1px solid #000; display:inline-block; text-align:center; line-height:27mm; color:#777; font-size:6.5pt; }
+    .dot { border-bottom:1px dotted #000; padding:0 2px; display:inline-block; min-width:18mm; font-weight:900; }
     .notes th { background:#f7f7f7; font-size:6.2pt; text-align:center; font-weight:900; text-transform:uppercase; }
     .notes td { font-size:6.9pt; }
     .disc { font-weight:900; }
@@ -163,44 +164,44 @@
         </tr>
         <tr class="eleve-row">
             <td style="width:30%; border-top:0; border-bottom:0;">
-                <span class="label">Matricule.</span> <span class="value">{{ $eleve->matricule_desps ?: $eleve->matricule_interne ?: '—' }}</span>
+                <span class="label">Matricule:</span> <span class="dot">{{ $eleve->matricule_desps ?: $eleve->matricule_interne ?: '' }}</span>
             </td>
             <td style="width:30%; border-top:0; border-bottom:0;">
-                <span class="label">Sexe:</span> <b>{{ strtoupper($eleve->sexe ?? '—') }}</b>
+                <span class="label">Sexe:</span> <span class="dot" style="min-width:8mm;">{{ strtoupper($eleve->sexe ?? '') }}</span>
             </td>
             <td style="width:25%; border-top:0; border-bottom:0;">
-                <span class="label">Redoub.:</span> <b>{{ $eleve->redoublant ? 'oui' : 'non' }}</b>
+                <span class="label">Redoub.:</span> <span class="dot" style="min-width:10mm;">{{ $eleve->redoublant ? 'oui' : 'non' }}</span>
+            </td>
+        </tr>
+        <tr class="eleve-row">
+            <td style="border-top:0; border-bottom:0;"></td>
+            <td style="border-top:0; border-bottom:0;">
+                <span class="label">Né(e) le:</span> <span class="dot">{{ $eleve->date_naissance?->format('d/m/Y') ?? '' }}</span>
+            </td>
+            <td style="border-top:0; border-bottom:0;">
+                <span class="label">Régime:</span> <span class="dot" style="min-width:12mm;">Non bo</span>
             </td>
         </tr>
         <tr class="eleve-row">
             <td style="border-top:0; border-bottom:0;">
-                <span class="label">Classe:</span> <span class="value">{{ $classe->nom ?? '—' }}</span>
+                <span class="label">Classe:</span> <span class="dot">{{ $classe->nom ?? '' }}</span>
             </td>
             <td style="border-top:0; border-bottom:0;">
-                <span class="label">Né(e) le:</span> <b>{{ $eleve->date_naissance?->format('d/m/Y') ?? '—' }}</b>
+                <span class="label">À:</span> <span class="dot">{{ strtoupper($eleve->lieu_naissance ?? '') }}</span>
             </td>
             <td style="border-top:0; border-bottom:0;">
-                <span class="label">Régime:</span> <b>Non bo</b>
+                <span class="label">Interne:</span> <span class="dot" style="min-width:10mm;">non</span>
             </td>
         </tr>
         <tr class="eleve-row">
-            <td style="border-top:0; border-bottom:0;">
-                <span class="label">Effectif:</span> <span class="value">{{ $effectif ?: '—' }}</span>
-            </td>
-            <td style="border-top:0; border-bottom:0;">
-                <span class="label">À:</span> <b>{{ strtoupper($eleve->lieu_naissance ?? '—') }}</b>
-            </td>
-            <td style="border-top:0; border-bottom:0;">
-                <span class="label">Interne:</span> <b>non</b>
-            </td>
-        </tr>
-        <tr class="eleve-row">
-            <td style="border-top:0;"></td>
             <td style="border-top:0;">
-                <span class="label">Nationalité:</span> {{ $eleve->nationalite ?? '—' }}
+                <span class="label">Effectif:</span> <span class="dot" style="min-width:12mm;">{{ $effectif ?: '' }}</span>
             </td>
             <td style="border-top:0;">
-                <span class="label">Affecté(e):</span> <b>{{ method_exists($eleve, 'estAffecte') && $eleve->estAffecte() ? 'oui' : 'non' }}</b>
+                <span class="label">Nationalité:</span> <span class="dot">{{ $eleve->nationalite ?? '' }}</span>
+            </td>
+            <td style="border-top:0;">
+                <span class="label">Affecté(e):</span> <span class="dot" style="min-width:10mm;">{{ method_exists($eleve, 'estAffecte') && $eleve->estAffecte() ? 'Oui' : 'Non' }}</span>
             </td>
         </tr>
     </table>
@@ -276,12 +277,12 @@
             @endforeach
             <tr class="totaux">
                 <td>TOTAUX</td>
-                <td class="num">{{ $fmt($generale->moyenne_generale) }}</td>
+                <td class="num"></td>
                 <td class="num">{{ $fmt0($totalCoef ?: $generale->total_coefficients) }}</td>
                 <td class="num">{{ $fmt($totalPoints ?: $generale->total_points) }}</td>
-                <td class="num">{{ $rang($generale->rang) }}</td>
-                <td class="num">{{ $fmt($annuelle?->moyenne_annuelle) }}</td>
-                <td class="num">{{ $rang($annuelle?->rang_annuel) }}</td>
+                <td class="num"></td>
+                <td class="num"></td>
+                <td class="num"></td>
                 <td colspan="2"></td>
             </tr>
         </tbody>
