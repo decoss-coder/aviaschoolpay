@@ -94,73 +94,67 @@
 @endphp
 
 <style>
-    /* === Palette professionnelle === */
-    /* Primary navy: #1e3a5f | Accent: #2563eb | Surface: #f1f5f9 | Soft: #e2e8f0 */
-
-    .bulletin { width:100%; font-family: DejaVu Sans, sans-serif; color:#0f172a; font-size:7.3pt; line-height:1.15; border:1.5px solid #1e3a5f; padding:0; background:#fff; }
+    /* === Style classique noir & blanc — reproduction fidèle du bulletin officiel === */
+    .bulletin { width:100%; font-family: DejaVu Sans, sans-serif; color:#000; font-size:7.2pt; line-height:1.15; border:1.5px solid #000; padding:0; background:#fff; }
     .bulletin table { width:100%; border-collapse:collapse; }
-    .bulletin td, .bulletin th { border:0.75px solid #475569; padding:2.5px 4px; vertical-align:middle; }
+    .bulletin td, .bulletin th { border:0.75px solid #000; padding:1.5px 3px; vertical-align:middle; }
     .no-border, .no-border td { border:0 !important; }
 
-    /* === Bandeau supérieur navy === */
-    .head-band { background:#1e3a5f; color:#fff; padding:3mm 4mm; }
-    .head-band table, .head-band td { border:0 !important; color:#fff; background:transparent; }
-    .ministry { font-size:7.4pt; font-weight:700; text-transform:uppercase; line-height:1.2; letter-spacing:.3px; opacity:.95; }
-    .title { font-family: DejaVu Serif, serif; font-size:19pt; font-weight:900; letter-spacing:1px; text-align:right; }
-    .sub-title { font-size:10pt; font-weight:700; text-align:right; margin-top:1mm; letter-spacing:.5px; opacity:.95; }
+    /* === Header === */
+    .head-band { padding:2mm 3mm; border-bottom:1.5px solid #000; }
+    .head-band table, .head-band td { border:0 !important; }
+    .ministry { font-size:7.5pt; font-weight:900; text-transform:uppercase; line-height:1.15; }
+    .title { font-family: DejaVu Serif, serif; font-size:18pt; font-weight:900; letter-spacing:.5px; text-align:right; }
+    .sub-title { font-size:10pt; font-weight:900; text-align:right; margin-top:0.5mm; }
 
     /* === Encadré établissement === */
-    .etab-block { background:#f8fafc; }
-    .etab-block .school { font-family: DejaVu Serif, serif; font-size:11pt; font-weight:900; text-transform:uppercase; color:#1e3a5f; letter-spacing:.3px; }
+    .etab-block .school { font-family: DejaVu Serif, serif; font-size:11pt; font-weight:900; text-transform:uppercase; letter-spacing:.3px; }
 
     /* === Bloc élève === */
-    .eleve-block { background:#fff; }
-    .name { font-size:13.5pt; font-weight:900; color:#1e3a5f; text-transform:uppercase; letter-spacing:.4px; padding:1mm 0 1.5mm; }
-    .label { font-size:6.6pt; color:#475569; text-transform:uppercase; letter-spacing:.3px; }
-    .value { font-size:8.5pt; font-weight:900; color:#0f172a; }
-    .dot { padding:0 2px; display:inline-block; font-weight:900; color:#0f172a; }
-    .photo { width:24mm; height:28mm; object-fit:cover; border:1.5px solid #1e3a5f; }
-    .photo-empty { width:24mm; height:28mm; border:1.5px dashed #94a3b8; display:inline-block; text-align:center; line-height:28mm; color:#94a3b8; font-size:6.5pt; background:#f8fafc; }
+    .name { font-size:13pt; font-weight:900; color:#1d4e89; text-transform:uppercase; letter-spacing:.3px; padding:1mm 0; }
+    .label { font-size:7pt; }
+    .value { font-size:8pt; font-weight:900; }
+    .dot { border-bottom:1px dotted #000; padding:0 2px; display:inline-block; min-width:18mm; font-weight:900; }
+    .photo { width:24mm; height:28mm; object-fit:cover; border:1px solid #000; }
+    .photo-empty { width:24mm; height:28mm; border:1px solid #000; display:inline-block; text-align:center; line-height:28mm; color:#aaa; font-size:6.5pt; }
+    .eleve-row td { padding:0.5px 3px !important; line-height:1.1; }
 
     /* === Tableau notes === */
-    .notes thead th { background:#1e3a5f; color:#fff; font-size:6.4pt; text-align:center; font-weight:900; text-transform:uppercase; padding:2.5px 2px; letter-spacing:.3px; border-color:#1e3a5f; }
-    .notes td { font-size:7.1pt; }
-    .disc { font-weight:900; color:#0f172a; }
-    .subdisc { font-family: DejaVu Serif, serif; font-style:italic; padding-left:10px !important; color:#475569; }
+    .notes thead th { background:#fff; font-size:6.6pt; text-align:center; font-weight:900; text-transform:uppercase; padding:1.5px 2px; }
+    .notes td { font-size:7.2pt; }
+    .disc { font-weight:900; }
+    .subdisc { font-family: DejaVu Serif, serif; font-style:italic; padding-left:8px !important; font-size:7pt; }
     .num { text-align:center; font-weight:700; white-space:nowrap; }
-    .app { font-size:6.5pt !important; font-weight:900; text-transform:uppercase; color:#1e3a5f; }
-    .prof { font-size:6.4pt !important; font-weight:700; color:#334155; }
-    .bilan td { font-weight:900; text-transform:uppercase; background:#dbeafe; color:#1e3a5f; font-size:7pt; letter-spacing:.3px; }
-    .totaux td { font-weight:900; background:#1e3a5f; color:#fff; font-size:7.4pt; letter-spacing:.5px; border-color:#1e3a5f; }
-    .totaux td.num { color:#fff; }
+    .app { font-size:6.8pt !important; font-style:italic; font-weight:900; text-transform:uppercase; }
+    .prof { font-size:6.8pt !important; font-weight:900; }
+    .bilan td { font-weight:900; text-transform:uppercase; background:#e8e8e8; font-size:7pt; }
+    .totaux td { font-weight:900; text-transform:uppercase; background:#d8d8d8; font-size:7.5pt; }
 
     /* === Footer === */
-    .foot-title { text-align:center; font-weight:900; text-transform:uppercase; font-size:7pt; color:#fff; background:#1e3a5f; padding:1.5mm 1mm; letter-spacing:.4px; margin:-2.5px -4px 2mm; }
-    .big { font-size:18pt; font-weight:900; text-align:center; color:#1e3a5f; line-height:1; }
-    .rg-line { text-align:center; font-size:8pt; color:#475569; }
-    .rg-line b { color:#1e3a5f; font-size:9pt; }
-    .divider { border-top:1px dashed #cbd5e1; margin:2mm 0; }
-    .section-lbl { font-weight:900; color:#1e3a5f; font-size:7pt; text-transform:uppercase; letter-spacing:.3px; margin-bottom:1mm; }
-    .box { display:inline-block; width:9px; height:9px; border:1.2px solid #1e3a5f; margin-right:3px; vertical-align:middle; text-align:center; line-height:7px; color:#1e3a5f; font-weight:900; }
-    .decision { text-align:center; font-family: DejaVu Serif, serif; font-style:italic; font-weight:900; color:#b91c1c; font-size:10pt; line-height:1.2; padding:2mm 1mm; background:#fef2f2; border-left:3px solid #b91c1c; }
-    .small { font-size:6.2pt; color:#64748b; text-align:center; padding:1.5mm 1mm; background:#f1f5f9; border-top:0.75px solid #cbd5e1; }
-    .eleve-row td { padding:1.5px 4px !important; line-height:1.2; }
-    .visa-zone { text-align:center; padding:2mm 1mm 1mm; }
-    .visa-date { font-style:italic; color:#475569; font-size:7pt; margin-bottom:8mm; }
-    .visa-role { font-weight:900; color:#1e3a5f; text-transform:uppercase; font-size:7pt; letter-spacing:.4px; }
+    .foot-title { text-align:center; font-weight:900; text-transform:uppercase; font-size:7.5pt; padding:0.5mm 1mm; border-bottom:0.75px solid #000; margin:-1.5px -3px 1mm; }
+    .big { font-size:16pt; font-weight:900; text-align:center; line-height:1; padding:1mm 0; }
+    .rg-line { text-align:center; font-size:8pt; }
+    .divider { border-top:0.75px solid #000; margin:1.5mm 0; }
+    .section-lbl { font-weight:900; font-size:7pt; text-decoration:underline; margin-bottom:1mm; }
+    .box { display:inline-block; width:9px; height:9px; border:1px solid #000; margin-right:3px; vertical-align:middle; text-align:center; line-height:8px; font-weight:900; font-size:7pt; }
+    .decision { text-align:center; font-family: DejaVu Serif, serif; font-style:italic; font-weight:900; color:#6b0000; font-size:10.5pt; line-height:1.2; padding:1mm; }
+    .small { font-size:6.3pt; text-align:center; padding:1mm; }
+    .visa-zone { text-align:center; padding:1mm; }
+    .visa-date { font-style:italic; font-size:7.5pt; margin:1mm 0 4mm; }
+    .visa-role { font-weight:900; text-decoration:underline; font-size:7.5pt; }
 </style>
 
 <div class="bulletin">
     <div class="head-band">
         <table>
             <tr>
-                <td style="width:55%; text-align:left; vertical-align:middle;">
-                    <div class="ministry">Ministère de l'Éducation Nationale<br>et de l'Alphabétisation</div>
-                    <div class="ministry" style="margin-top:1mm;">Direction Régionale {{ strtoupper($etab->drena ?: ($etab->region ?: $etab->ville ?: '')) }}</div>
+                <td style="width:55%; text-align:left; vertical-align:top;">
+                    <div class="ministry">Ministère de l'Éducation Nationale et de l'Alphabétisation</div>
+                    <div class="ministry">Direction Régionale de {{ $etab->drena ?: ($etab->region ?: $etab->ville ?: '') }}</div>
                 </td>
-                <td style="width:45%; text-align:right; vertical-align:middle;">
+                <td style="width:45%; text-align:right; vertical-align:top;">
                     <div class="title">BULLETIN DES NOTES</div>
-                    <div class="sub-title">{{ $trimestre->libelle ?? ($trimestre->numero.'e Trimestre') }} · {{ $annee->libelle ?? '—' }}</div>
+                    <div class="sub-title">{{ $trimestre->libelle ?? ($trimestre->numero.'e Trimestre') }} - {{ $annee->libelle ?? '—' }}</div>
                 </td>
             </tr>
         </table>
@@ -168,15 +162,15 @@
 
     <table class="etab-block">
         <tr>
-            <td style="width:66%;">
-                <span class="label">Établissement</span><br>
-                <span class="school">{{ $etab->nom ?? '—' }}</span><br>
-                <span class="label">Adresse</span> · {{ $etab->adresse ?? '—' }} &nbsp;·&nbsp; <span class="label">Tél.</span> {{ $etab->telephone ?? '—' }}
+            <td style="width:68%; text-align:center;">
+                <span class="label">Etab. :</span> <span class="school">{{ $etab->nom ?? '—' }}</span><br>
+                <span class="label">Adres. :</span> <span class="dot" style="min-width:30mm;">{{ $etab->adresse ?? '' }}</span>
+                &nbsp;&nbsp;<span class="label">Tél. :</span> <span class="dot" style="min-width:30mm;">{{ $etab->telephone ?? '' }}</span>
             </td>
-            <td style="width:34%;">
-                <b>Code :</b> {{ $etab->code_desps ?? $etab->code ?? '—' }}<br>
-                <b>Statut:</b> {{ ucfirst(str_replace('_', ' ', $etab->statut_juridique ?? 'Privé')) }}<br>
-                <span class="small">{{ $etab->email ?? '' }}</span>
+            <td style="width:32%;">
+                <b>Code :</b> {{ $etab->code_desps ?? '—' }}<br>
+                <b>Statut :</b> {{ ucfirst(str_replace('_', ' ', $etab->statut_juridique ?? 'Privé')) }}<br>
+                <span style="font-size:6.8pt;">{{ $etab->email ?? '' }}</span>
             </td>
         </tr>
     </table>
