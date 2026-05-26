@@ -21,6 +21,17 @@ Route::post('admin/rh/affectations/rapide', 'App\\Http\\Controllers\\Admin\\Affe
     ->middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
     ->name('admin.rh.affectations.rapide.store');
 
+Route::middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
+    ->prefix('admin/rh')
+    ->name('admin.rh.')
+    ->group(function () {
+        Route::get('/niveaux', 'App\\Http\\Controllers\\Admin\\NiveauxController@index')->name('niveaux.index');
+        Route::post('/niveaux', 'App\\Http\\Controllers\\Admin\\NiveauxController@store')->name('niveaux.store');
+        Route::patch('/niveaux/{niveau}', 'App\\Http\\Controllers\\Admin\\NiveauxController@update')->name('niveaux.update');
+        Route::post('/niveaux/{niveau}/toggle', 'App\\Http\\Controllers\\Admin\\NiveauxController@toggle')->name('niveaux.toggle');
+        Route::delete('/niveaux/{niveau}', 'App\\Http\\Controllers\\Admin\\NiveauxController@destroy')->name('niveaux.destroy');
+    });
+
 foreach ([
     'eleves.show',
     'finances.eleve',
