@@ -115,6 +115,7 @@
                     class="text-xs font-semibold rounded-lg border border-gray-200 px-2 py-2 bg-white">
                 <option value="1">1 / page A4</option>
                 <option value="2">2 / page A4</option>
+                <option value="3">3 / page A4</option>
                 <option value="4">4 / page A4</option>
             </select>
             <button type="submit"

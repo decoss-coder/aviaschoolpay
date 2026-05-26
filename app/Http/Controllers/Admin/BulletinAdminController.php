@@ -317,7 +317,7 @@ class BulletinAdminController extends Controller
     }
 
     /**
-     * Génération en masse avec disposition configurable (1/2/4 bulletins par page A4).
+     * Génération en masse avec disposition configurable (1/2/3/4 bulletins par page A4).
      * Auto-calcule les moyennes générales si elles ne l'ont pas encore été.
      */
     public function pdfMasse(Request $request)
@@ -325,7 +325,7 @@ class BulletinAdminController extends Controller
         $data = $request->validate([
             'classe_id'    => 'required|exists:classes,id',
             'trimestre_id' => 'required|exists:trimestres,id',
-            'disposition'  => 'required|in:1,2,4',
+            'disposition'  => 'required|in:1,2,3,4',
             'eleve_ids'    => 'required|array|min:1',
             'eleve_ids.*'  => 'exists:eleves,id',
         ]);
