@@ -17,12 +17,14 @@ class TypeEvaluation extends Model
         'coefficient_defaut',
         'note_sur_defaut',
         'active',
+        'actif',
     ];
 
     protected $casts = [
         'coefficient_defaut' => 'decimal:2',
         'note_sur_defaut' => 'decimal:2',
         'active' => 'boolean',
+        'actif' => 'boolean',
     ];
 
     public function etablissement(): BelongsTo
