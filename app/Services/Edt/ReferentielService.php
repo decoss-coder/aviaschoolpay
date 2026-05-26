@@ -2,6 +2,7 @@
 
 namespace App\Services\Edt;
 
+use App\Models\Affectation;
 use App\Models\Classe;
 use App\Models\EdtPolicy;
 use App\Models\EdtReferentielProfil;
@@ -28,8 +29,9 @@ class ReferentielService
     public function buildDemandUnitsForClasse(Classe $classe, ?EdtPolicy $policy = null): Collection
     {
         $profil = $this->getClasseProfile($classe);
-        if (!$profil) {
-            return collect();
+
+        if (!$profil || $profil->lignes->isEmpty()) {
+            return $this->fromAffectations($classe);
         }
 
         return $profil->lignes
@@ -51,5 +53,58 @@ class ReferentielService
                     'facultatif' => (bool) $ligne->facultatif,
                 ];
             })->values();
+    }
+
+    private function fromAffectations(Classe $classe): Collection
+    {
+        $rows = Affectation::query()
+            ->where('classe_id', $classe->id)
+            ->where('active', true)
+            ->when($classe->annee_scolaire_id, fn ($q) => $q->where('annee_scolaire_id', $classe->annee_scolaire_id))
+            ->with('matiere')
+            ->orderBy('matiere_id')
+            ->get();
+
+        if ($rows->isEmpty() && $classe->annee_scolaire_id) {
+            $rows = Affectation::query()
+                ->where('classe_id', $classe->id)
+                ->where('active', true)
+                ->with('matiere')
+                ->orderBy('matiere_id')
+                ->get();
+        }
+
+        $out = collect();
+        $ordre = 1;
+
+        foreach ($rows as $row) {
+            if (!$row->matiere) {
+                continue;
+            }
+
+            $volume = (float) ($row->volume_horaire_hebdo ?: 1);
+            $nb = max(1, (int) ceil($volume));
+            $minutes = (int) round($volume * 60);
+
+            for ($i = 0; $i < $nb; $i++) {
+                $out->push([
+                    'classe_id' => $classe->id,
+                    'matiere_id' => $row->matiere_id,
+                    'matiere_code' => $row->matiere?->code,
+                    'volume_eleve_minutes' => $minutes,
+                    'volume_prof_minutes' => $minutes,
+                    'frequence' => 'hebdomadaire',
+                    'mode_seance' => 'simple',
+                    'nb_blocs_souhaite' => $nb,
+                    'blocs_consecutifs' => false,
+                    'ecart_min_jours' => null,
+                    'ordre_montage' => $ordre++,
+                    'obligatoire' => true,
+                    'facultatif' => false,
+                ]);
+            }
+        }
+
+        return $out->values();
     }
 }
