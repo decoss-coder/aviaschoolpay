@@ -94,56 +94,84 @@
 @endphp
 
 <style>
-    .bulletin { width:100%; font-family: DejaVu Sans, sans-serif; color:#000; font-size:7.2pt; line-height:1.1; border:2px solid #000; padding:2mm; }
-    .bulletin table { width:100%; border-collapse:collapse; border:1.2px solid #000; }
-    .bulletin td, .bulletin th { border:1px solid #000; padding:2px 3px; vertical-align:middle; }
+    /* === Palette professionnelle === */
+    /* Primary navy: #1e3a5f | Accent: #2563eb | Surface: #f1f5f9 | Soft: #e2e8f0 */
+
+    .bulletin { width:100%; font-family: DejaVu Sans, sans-serif; color:#0f172a; font-size:7.3pt; line-height:1.15; border:1.5px solid #1e3a5f; padding:0; background:#fff; }
+    .bulletin table { width:100%; border-collapse:collapse; }
+    .bulletin td, .bulletin th { border:0.75px solid #475569; padding:2.5px 4px; vertical-align:middle; }
     .no-border, .no-border td { border:0 !important; }
-    .title { text-align:center; font-family: DejaVu Serif, serif; font-size:18pt; font-weight:900; letter-spacing:.4px; }
-    .sub-title { text-align:center; font-size:10.5pt; font-weight:900; margin-top:1px; }
-    .ministry { text-align:center; font-size:7.2pt; font-weight:900; text-transform:uppercase; line-height:1.05; }
-    .school { font-family: DejaVu Serif, serif; font-size:10.5pt; font-weight:900; text-transform:uppercase; }
-    .name { font-size:13pt; font-weight:900; color:#1d4e89; text-transform:uppercase; letter-spacing:.2px; }
-    .label { font-size:6.4pt; }
-    .value { font-size:8pt; font-weight:900; }
-    .photo { width:24mm; height:27mm; object-fit:cover; border:1px solid #000; }
-    .photo-empty { width:24mm; height:27mm; border:1px solid #000; display:inline-block; text-align:center; line-height:27mm; color:#777; font-size:6.5pt; }
-    .dot { border-bottom:1px dotted #000; padding:0 2px; display:inline-block; min-width:18mm; font-weight:900; }
-    .notes th { background:#f7f7f7; font-size:6.2pt; text-align:center; font-weight:900; text-transform:uppercase; }
-    .notes td { font-size:6.9pt; }
-    .disc { font-weight:900; }
-    .subdisc { font-family: DejaVu Serif, serif; font-style:italic; padding-left:9px !important; }
-    .num { text-align:center; font-weight:800; white-space:nowrap; }
-    .app { font-size:6.3pt !important; font-weight:900; text-transform:uppercase; }
-    .prof { font-size:6.2pt !important; font-weight:900; }
-    .bilan td { font-weight:900; text-transform:uppercase; background:#f9f9f9; }
-    .totaux td { font-weight:900; }
-    .foot-title { text-align:center; font-weight:900; text-transform:uppercase; font-size:7pt; }
-    .big { font-size:15pt; font-weight:900; text-align:center; }
-    .decision { text-align:center; font-family: DejaVu Serif, serif; font-style:italic; font-weight:900; color:#6b0000; font-size:11pt; line-height:1.1; }
-    .box { display:inline-block; width:8px; height:8px; border:1px solid #000; margin-right:3px; vertical-align:middle; text-align:center; line-height:7px; }
-    .small { font-size:6.2pt; }
-    .eleve-row td { padding:0 2px !important; line-height:1.05; }
+
+    /* === Bandeau supérieur navy === */
+    .head-band { background:#1e3a5f; color:#fff; padding:3mm 4mm; }
+    .head-band table, .head-band td { border:0 !important; color:#fff; background:transparent; }
+    .ministry { font-size:7.4pt; font-weight:700; text-transform:uppercase; line-height:1.2; letter-spacing:.3px; opacity:.95; }
+    .title { font-family: DejaVu Serif, serif; font-size:19pt; font-weight:900; letter-spacing:1px; text-align:right; }
+    .sub-title { font-size:10pt; font-weight:700; text-align:right; margin-top:1mm; letter-spacing:.5px; opacity:.95; }
+
+    /* === Encadré établissement === */
+    .etab-block { background:#f8fafc; }
+    .etab-block .school { font-family: DejaVu Serif, serif; font-size:11pt; font-weight:900; text-transform:uppercase; color:#1e3a5f; letter-spacing:.3px; }
+
+    /* === Bloc élève === */
+    .eleve-block { background:#fff; }
+    .name { font-size:13.5pt; font-weight:900; color:#1e3a5f; text-transform:uppercase; letter-spacing:.4px; padding:1mm 0 1.5mm; }
+    .label { font-size:6.6pt; color:#475569; text-transform:uppercase; letter-spacing:.3px; }
+    .value { font-size:8.5pt; font-weight:900; color:#0f172a; }
+    .dot { padding:0 2px; display:inline-block; font-weight:900; color:#0f172a; }
+    .photo { width:24mm; height:28mm; object-fit:cover; border:1.5px solid #1e3a5f; }
+    .photo-empty { width:24mm; height:28mm; border:1.5px dashed #94a3b8; display:inline-block; text-align:center; line-height:28mm; color:#94a3b8; font-size:6.5pt; background:#f8fafc; }
+
+    /* === Tableau notes === */
+    .notes thead th { background:#1e3a5f; color:#fff; font-size:6.4pt; text-align:center; font-weight:900; text-transform:uppercase; padding:2.5px 2px; letter-spacing:.3px; border-color:#1e3a5f; }
+    .notes td { font-size:7.1pt; }
+    .disc { font-weight:900; color:#0f172a; }
+    .subdisc { font-family: DejaVu Serif, serif; font-style:italic; padding-left:10px !important; color:#475569; }
+    .num { text-align:center; font-weight:700; white-space:nowrap; }
+    .app { font-size:6.5pt !important; font-weight:900; text-transform:uppercase; color:#1e3a5f; }
+    .prof { font-size:6.4pt !important; font-weight:700; color:#334155; }
+    .bilan td { font-weight:900; text-transform:uppercase; background:#dbeafe; color:#1e3a5f; font-size:7pt; letter-spacing:.3px; }
+    .totaux td { font-weight:900; background:#1e3a5f; color:#fff; font-size:7.4pt; letter-spacing:.5px; border-color:#1e3a5f; }
+    .totaux td.num { color:#fff; }
+
+    /* === Footer === */
+    .foot-title { text-align:center; font-weight:900; text-transform:uppercase; font-size:7pt; color:#fff; background:#1e3a5f; padding:1.5mm 1mm; letter-spacing:.4px; margin:-2.5px -4px 2mm; }
+    .big { font-size:18pt; font-weight:900; text-align:center; color:#1e3a5f; line-height:1; }
+    .rg-line { text-align:center; font-size:8pt; color:#475569; }
+    .rg-line b { color:#1e3a5f; font-size:9pt; }
+    .divider { border-top:1px dashed #cbd5e1; margin:2mm 0; }
+    .section-lbl { font-weight:900; color:#1e3a5f; font-size:7pt; text-transform:uppercase; letter-spacing:.3px; margin-bottom:1mm; }
+    .box { display:inline-block; width:9px; height:9px; border:1.2px solid #1e3a5f; margin-right:3px; vertical-align:middle; text-align:center; line-height:7px; color:#1e3a5f; font-weight:900; }
+    .decision { text-align:center; font-family: DejaVu Serif, serif; font-style:italic; font-weight:900; color:#b91c1c; font-size:10pt; line-height:1.2; padding:2mm 1mm; background:#fef2f2; border-left:3px solid #b91c1c; }
+    .small { font-size:6.2pt; color:#64748b; text-align:center; padding:1.5mm 1mm; background:#f1f5f9; border-top:0.75px solid #cbd5e1; }
+    .eleve-row td { padding:1.5px 4px !important; line-height:1.2; }
+    .visa-zone { text-align:center; padding:2mm 1mm 1mm; }
+    .visa-date { font-style:italic; color:#475569; font-size:7pt; margin-bottom:8mm; }
+    .visa-role { font-weight:900; color:#1e3a5f; text-transform:uppercase; font-size:7pt; letter-spacing:.4px; }
 </style>
 
 <div class="bulletin">
-    <table style="border:0; margin-bottom:1px;">
-        <tr class="no-border">
-            <td style="width:49%; text-align:center;">
-                <div class="ministry">MINISTÈRE DE L'ÉDUCATION NATIONALE ET DE L'ALPHABÉTISATION</div>
-                <div class="ministry">DIRECTION RÉGIONALE {{ strtoupper($etab->drena ?: ($etab->region ?: $etab->ville ?: '')) }}</div>
-            </td>
-            <td style="width:51%;">
-                <div class="title">BULLETIN DES NOTES</div>
-                <div class="sub-title">{{ strtoupper($trimestre->libelle ?? ($trimestre->numero.'e Trimestre')) }} - {{ $annee->libelle ?? '—' }}</div>
-            </td>
-        </tr>
-    </table>
+    <div class="head-band">
+        <table>
+            <tr>
+                <td style="width:55%; text-align:left; vertical-align:middle;">
+                    <div class="ministry">Ministère de l'Éducation Nationale<br>et de l'Alphabétisation</div>
+                    <div class="ministry" style="margin-top:1mm;">Direction Régionale {{ strtoupper($etab->drena ?: ($etab->region ?: $etab->ville ?: '')) }}</div>
+                </td>
+                <td style="width:45%; text-align:right; vertical-align:middle;">
+                    <div class="title">BULLETIN DES NOTES</div>
+                    <div class="sub-title">{{ $trimestre->libelle ?? ($trimestre->numero.'e Trimestre') }} · {{ $annee->libelle ?? '—' }}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
 
-    <table>
+    <table class="etab-block">
         <tr>
-            <td style="width:66%; text-align:center;">
-                <span class="label">Etab. :</span> <span class="school">{{ $etab->nom ?? '—' }}</span><br>
-                <span class="label">Adres. :</span> {{ $etab->adresse ?? '—' }} &nbsp;&nbsp; <b>Tél.</b> {{ $etab->telephone ?? '—' }}
+            <td style="width:66%;">
+                <span class="label">Établissement</span><br>
+                <span class="school">{{ $etab->nom ?? '—' }}</span><br>
+                <span class="label">Adresse</span> · {{ $etab->adresse ?? '—' }} &nbsp;·&nbsp; <span class="label">Tél.</span> {{ $etab->telephone ?? '—' }}
             </td>
             <td style="width:34%;">
                 <b>Code :</b> {{ $etab->code_desps ?? $etab->code ?? '—' }}<br>
@@ -153,7 +181,7 @@
         </tr>
     </table>
 
-    <table style="margin-top:2px; margin-bottom:2px;">
+    <table class="eleve-block">
         <tr>
             <td colspan="3" style="border-bottom:0;">
                 <div class="name">{{ strtoupper(trim(($eleve->prenom ?? '').' '.($eleve->nom ?? ''))) }}</div>
@@ -291,18 +319,23 @@
     <table style="margin-top:2px;">
         <tr>
             <td style="width:34%;">
-                <div class="foot-title">BILAN DU {{ $numT }}{{ strtoupper($suffixT) }} TRIMESTRE</div>
-                <table class="no-border"><tr><td style="width:35%;"><div class="big">{{ $fmt($generale->moyenne_generale, 1) }}</div></td><td>Rg : <b>{{ $generale->rang ?? '—' }}</b> / <b>{{ $effectif ?: '—' }}</b></td></tr></table>
-                <div style="border-top:1px solid #000; margin:2px 0;"></div>
-                <b>Distinctions / Sanctions</b><br>
-                <span class="box">{{ in_array($generale->mention, ['felicitations','tableau_honneur'], true) ? '✓' : '' }}</span> TH + Fél. &nbsp;&nbsp;
-                <span class="box">{{ $generale->mention === 'avertissement' ? '✓' : '' }}</span> Blâme Travail<br>
-                <span class="box">{{ $generale->mention === 'tableau_honneur' ? '✓' : '' }}</span> TH &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                <span class="box">{{ $generale->mention === 'blame' ? '✓' : '' }}</span> Blâme conduite
-                <div style="border-top:1px solid #000; margin:2px 0;"></div>
-                <b>{{ $generale->total_absences ?? 0 }}</b> H d'abs. dont <b>{{ $generale->absences_justifiees ?? 0 }}</b> non just.<br>
-                Moy. mini : <b>{{ $fmt($generale->moyenne_dernier) }}</b> &nbsp; Moy. Classe : <b>{{ $fmt($generale->moyenne_classe) }}</b><br>
-                Moy. maxi : <b>{{ $fmt($generale->moyenne_premier) }}</b>
+                <div class="foot-title">Bilan du {{ $numT }}{{ $suffixT }} Trimestre</div>
+                <div class="big">{{ $fmt($generale->moyenne_generale, 2) }}<span style="font-size:9pt; color:#64748b;"> /20</span></div>
+                <div class="rg-line">Rang : <b>{{ $generale->rang ?? '—' }}</b> / {{ $effectif ?: '—' }}</div>
+                <div class="divider"></div>
+                <div class="section-lbl">Distinctions / Sanctions</div>
+                <div style="font-size:6.8pt; line-height:1.4;">
+                    <span class="box">{{ in_array($generale->mention, ['felicitations','tableau_honneur'], true) ? '✓' : '' }}</span>TH + Fél.
+                    &nbsp;&nbsp;<span class="box">{{ $generale->mention === 'avertissement' ? '✓' : '' }}</span>Blâme Travail<br>
+                    <span class="box">{{ $generale->mention === 'tableau_honneur' ? '✓' : '' }}</span>TH
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="box">{{ $generale->mention === 'blame' ? '✓' : '' }}</span>Blâme conduite
+                </div>
+                <div class="divider"></div>
+                <div class="section-lbl">Absences & statistiques</div>
+                <div style="font-size:6.8pt; line-height:1.5;">
+                    <b style="color:#1e3a5f;">{{ $generale->total_absences ?? 0 }}h</b> d'abs. · <b style="color:#1e3a5f;">{{ $generale->absences_justifiees ?? 0 }}</b> non just.<br>
+                    Min <b>{{ $fmt($generale->moyenne_dernier) }}</b> · Moy <b>{{ $fmt($generale->moyenne_classe) }}</b> · Max <b>{{ $fmt($generale->moyenne_premier) }}</b>
+                </div>
             </td>
             <td style="width:28%;">
                 <div class="foot-title">Récapitulatif</div>
@@ -323,20 +356,23 @@
                         </tr>
                     @endforeach
                 </table>
-                <div class="foot-title" style="margin-top:4px;">Décision de fin d'année</div>
+                <div class="foot-title" style="margin-top:3mm;">Décision de fin d'année</div>
                 <div class="decision">{{ $decision }}</div>
             </td>
             <td style="width:38%;">
-                <div class="foot-title">BILAN DE FIN D'ANNÉE</div>
-                <table class="no-border"><tr><td style="width:35%;"><div class="big">{{ $fmt($annuelle?->moyenne_annuelle, 2) }}</div></td><td>Rg : <b>{{ $annuelle?->rang_annuel ?? '—' }}</b> / <b>{{ $effectif ?: '—' }}</b></td></tr></table>
-                <div style="border-top:1px solid #000; margin:4px 0 8px;"></div>
-                <div class="foot-title">VISA DU CHEF D'ÉTABLISSEMENT</div>
-                <div style="height:24px; text-align:center; font-style:italic; padding-top:5px;">Fait à {{ $etab->ville ?? '—' }}, le {{ $dateVisaFr }}</div>
-                <div style="height:30px;"></div>
-                <div style="text-align:center; font-weight:900;">{{ strtoupper($etab->directeur_nom ?? 'LE DIRECTEUR DES ÉTUDES') }}</div>
+                <div class="foot-title">Bilan de fin d'année</div>
+                <div class="big">{{ $fmt($annuelle?->moyenne_annuelle, 2) }}<span style="font-size:9pt; color:#64748b;"> /20</span></div>
+                <div class="rg-line">Rang : <b>{{ $annuelle?->rang_annuel ?? '—' }}</b> / {{ $effectif ?: '—' }}</div>
+                <div class="divider"></div>
+                <div class="section-lbl" style="text-align:center;">Visa du Chef d'Établissement</div>
+                <div class="visa-zone">
+                    <div class="visa-date">Fait à {{ $etab->ville ?? '—' }}, le {{ $dateVisaFr }}</div>
+                    <div class="visa-role">Le Directeur des Études</div>
+                    <div style="font-size:6.8pt; color:#475569; margin-top:1mm;">{{ $etab->directeur_nom ?? '' }}</div>
+                </div>
             </td>
         </tr>
     </table>
 
-    <div class="small" style="margin-top:3px;">&lt;{{ strtoupper($eleve->nom_complet) }}&gt; - {{ $classe->nom ?? '—' }} - {{ $trimestre->libelle ?? 'Période' }} {{ $annee->libelle ?? '' }}</div>
+    <div class="small">{{ strtoupper($eleve->nom_complet) }} · {{ $classe->nom ?? '—' }} · {{ $trimestre->libelle ?? 'Période' }} {{ $annee->libelle ?? '' }} · Document généré le {{ $dateVisaFr }}</div>
 </div>
