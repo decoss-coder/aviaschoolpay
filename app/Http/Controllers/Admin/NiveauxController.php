@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Niveau;
 use App\Services\Finance\TarificationService;
-use App\Services\Scolarite\AnneeScolaireContext;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +18,6 @@ class NiveauxController extends Controller
     public function index(Request $request)
     {
         $etabId = $this->etabId($request);
-        $annee = AnneeScolaireContext::courantePourEtablissement($etabId);
 
         $niveaux = Niveau::query()
             ->where('etablissement_id', $etabId)
@@ -36,7 +34,7 @@ class NiveauxController extends Controller
             'lycee' => $niveaux->where('cycle', TarificationService::CYCLE_LYCEE)->count(),
         ];
 
-        return view('admin.rh.niveaux.index', compact('niveaux', 'stats', 'annee'));
+        return view('admin.rh.niveaux.index', compact('niveaux', 'stats'));
     }
 
     public function store(Request $request)
@@ -50,13 +48,13 @@ class NiveauxController extends Controller
             'libelle' => trim($data['libelle']),
             'cycle' => $data['cycle'],
             'ordre' => (int) ($data['ordre'] ?? 0),
-            'frais_scolarite_defaut' => (int) ($data['frais_scolarite_defaut'] ?? 0),
-            'frais_inscription_defaut' => (int) ($data['frais_inscription_defaut'] ?? 0),
-            'frais_reinscription_defaut' => (int) ($data['frais_reinscription_defaut'] ?? 0),
+            'frais_scolarite_defaut' => 0,
+            'frais_inscription_defaut' => 0,
+            'frais_reinscription_defaut' => 0,
             'actif' => true,
         ]);
 
-        return back()->with('success', 'Niveau créé avec succès.');
+        return back()->with('success', 'Niveau créé avec succès. Les tarifs se règlent dans Grilles tarifaires.');
     }
 
     public function update(Request $request, Niveau $niveau)
@@ -64,21 +62,14 @@ class NiveauxController extends Controller
         abort_unless($niveau->etablissement_id === $this->etabId($request), 404);
 
         $data = $this->validated($request, $niveau);
+
         $niveau->update([
             'code' => strtoupper(trim($data['code'])),
             'libelle' => trim($data['libelle']),
             'cycle' => $data['cycle'],
             'ordre' => (int) ($data['ordre'] ?? 0),
-            'frais_scolarite_defaut' => (int) ($data['frais_scolarite_defaut'] ?? 0),
-            'frais_inscription_defaut' => (int) ($data['frais_inscription_defaut'] ?? 0),
-            'frais_reinscription_defaut' => (int) ($data['frais_reinscription_defaut'] ?? 0),
             'actif' => $request->boolean('actif', $niveau->actif),
         ]);
-
-        $annee = AnneeScolaireContext::courantePourEtablissement((int) $niveau->etablissement_id);
-        if ($annee && $request->boolean('appliquer_classes')) {
-            TarificationService::appliquerNiveauSurClasses($niveau->fresh(), (int) $annee->id);
-        }
 
         return back()->with('success', 'Niveau mis à jour avec succès.');
     }
@@ -121,11 +112,7 @@ class NiveauxController extends Controller
             'libelle' => ['required', 'string', 'max:100'],
             'cycle' => ['required', Rule::in([TarificationService::CYCLE_COLLEGE, TarificationService::CYCLE_LYCEE])],
             'ordre' => ['nullable', 'integer', 'min:0', 'max:999'],
-            'frais_scolarite_defaut' => ['nullable', 'integer', 'min:0', 'max:10000000'],
-            'frais_inscription_defaut' => ['nullable', 'integer', 'min:0', 'max:1000000'],
-            'frais_reinscription_defaut' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'actif' => ['nullable', 'boolean'],
-            'appliquer_classes' => ['nullable', 'boolean'],
         ]);
     }
 }
