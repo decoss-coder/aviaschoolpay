@@ -3,33 +3,41 @@
 use App\Http\Middleware\EnsureEleveStatutIsSet;
 use Illuminate\Support\Facades\Route;
 
-Route::get('eleves/{eleve}/statut-required', 'App\\Http\\Controllers\\EleveStatutRequiredController@edit')
+Route::get('eleves/{eleve}/statut-required', 'App\Http\Controllers\EleveStatutRequiredController@edit')
     ->middleware(['auth', 'password.changed'])
     ->whereNumber('eleve')
     ->name('eleves.statut-required.edit');
 
-Route::patch('eleves/{eleve}/statut-required', 'App\\Http\\Controllers\\EleveStatutRequiredController@update')
+Route::patch('eleves/{eleve}/statut-required', 'App\Http\Controllers\EleveStatutRequiredController@update')
     ->middleware(['auth', 'password.changed'])
     ->whereNumber('eleve')
     ->name('eleves.statut-required.update');
 
-Route::get('admin/rh/affectations/rapide', 'App\\Http\\Controllers\\Admin\\AffectationRapideController@create')
+Route::get('admin/rh/affectations/rapide', 'App\Http\Controllers\Admin\AffectationRapideController@create')
     ->middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
     ->name('admin.rh.affectations.rapide.create');
 
-Route::post('admin/rh/affectations/rapide', 'App\\Http\\Controllers\\Admin\\AffectationRapideController@store')
+Route::post('admin/rh/affectations/rapide', 'App\Http\Controllers\Admin\AffectationRapideController@store')
     ->middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
     ->name('admin.rh.affectations.rapide.store');
+
+Route::middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
+    ->prefix('emploi-du-temps')
+    ->name('emploi-du-temps.')
+    ->group(function () {
+        Route::post('/creneaux/preset', 'App\Http\Controllers\CreneauWebController@applyPreset')
+            ->name('creneaux.preset');
+    });
 
 Route::middleware(['auth', 'password.changed', 'role:super_admin,directeur,directeur_adjoint,gestionnaire,secretaire,comptable,censeur'])
     ->prefix('admin/rh')
     ->name('admin.rh.')
     ->group(function () {
-        Route::get('/niveaux', 'App\\Http\\Controllers\\Admin\\NiveauxController@index')->name('niveaux.index');
-        Route::post('/niveaux', 'App\\Http\\Controllers\\Admin\\NiveauxController@store')->name('niveaux.store');
-        Route::patch('/niveaux/{niveau}', 'App\\Http\\Controllers\\Admin\\NiveauxController@update')->name('niveaux.update');
-        Route::post('/niveaux/{niveau}/toggle', 'App\\Http\\Controllers\\Admin\\NiveauxController@toggle')->name('niveaux.toggle');
-        Route::delete('/niveaux/{niveau}', 'App\\Http\\Controllers\\Admin\\NiveauxController@destroy')->name('niveaux.destroy');
+        Route::get('/niveaux', 'App\Http\Controllers\Admin\NiveauxController@index')->name('niveaux.index');
+        Route::post('/niveaux', 'App\Http\Controllers\Admin\NiveauxController@store')->name('niveaux.store');
+        Route::patch('/niveaux/{niveau}', 'App\Http\Controllers\Admin\NiveauxController@update')->name('niveaux.update');
+        Route::post('/niveaux/{niveau}/toggle', 'App\Http\Controllers\Admin\NiveauxController@toggle')->name('niveaux.toggle');
+        Route::delete('/niveaux/{niveau}', 'App\Http\Controllers\Admin\NiveauxController@destroy')->name('niveaux.destroy');
     });
 
 foreach ([
