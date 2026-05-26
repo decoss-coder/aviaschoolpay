@@ -46,33 +46,16 @@ class GenerationPlanner
         $creneaux    = Creneau::where('etablissement_id', $scenario->etablissement_id)->cours()->orderBy('ordre')->get();
         $constraints = $this->constraintEngine->resolveScenarioConstraints($scenario);
 
-        // ── Disponibilités vacataires (horaires soumis par les profs) ──
         $availability = $this->vacataireService->getAvailabilityMap($enseignants);
-
-        // ── Horaires dans d'autres établissements ──────────────────────
-        $externalBusy = $this->externalScheduleService->getBusyMap(
-            $enseignants,
-            $creneaux,
-            $scenario->annee_scolaire_id
-        );
-
-        // ── Carte ordre des créneaux (id → ordre) pour les scores ─────
+        $externalBusy = $this->externalScheduleService->getBusyMap($enseignants, $creneaux, $scenario->annee_scolaire_id);
         $creneauOrdreById = $creneaux->pluck('ordre', 'id')->all();
+        $classePlageMap = EdtClassePlageHoraire::buildMap($classes->pluck('id'), $scenario->annee_scolaire_id);
 
-        // ── Restrictions matin / après-midi par classe ────────────────
-        $classePlageMap = EdtClassePlageHoraire::buildMap(
-            $classes->pluck('id'),
-            $scenario->annee_scolaire_id
-        );
-
-        // ── Affectations enseignant→matière→classe : [matiere_id][classe_id] = [enseignant_id, ...] ──
         $affectationsMap = Affectation::where('annee_scolaire_id', $scenario->annee_scolaire_id)
             ->where('active', true)
             ->get()
             ->groupBy('matiere_id')
-            ->map(fn ($byMatiere) => $byMatiere->groupBy('classe_id')
-                ->map(fn ($rows) => $rows->pluck('enseignant_id')->all())
-            )
+            ->map(fn ($byMatiere) => $byMatiere->groupBy('classe_id')->map(fn ($rows) => $rows->pluck('enseignant_id')->all()))
             ->all();
 
         $state = [
@@ -96,45 +79,35 @@ class GenerationPlanner
             }
         }
 
+        if ($classes->isEmpty()) {
+            $issues->push($this->issue('NO_ACTIVE_CLASS', 'Aucune classe active trouvée pour cette génération.', null, null));
+        }
+
+        if ($creneaux->isEmpty()) {
+            $issues->push($this->issue('NO_COURSE_SLOT', 'Aucun créneau de type cours n’est configuré. Ajoute les créneaux horaires avant de lancer l’IA.', null, null));
+        }
+
+        if ($enseignants->isEmpty()) {
+            $issues->push($this->issue('NO_ACTIVE_TEACHER', 'Aucun enseignant actif trouvé.', null, null));
+        }
+
+        if ($units->isEmpty() && $classes->isNotEmpty()) {
+            $issues->push($this->issue('NO_DEMAND_UNIT', 'Aucune unité de cours à placer. Vérifie les affectations enseignants/classes/disciplines ou le référentiel EDT.', null, null));
+        }
+
         $units = $units->sortBy([
             fn ($row) => $row['ordre_montage'] ?? 999,
             fn ($row) => $row['classe']->edt_generation_priority ?? 5,
         ])->values();
 
         foreach ($units as $unit) {
-            $candidates = $this->buildCandidates(
-                $unit,
-                $enseignants,
-                $salles,
-                $creneaux,
-                $availability,
-                $externalBusy,
-                $creneauOrdreById,
-                $scenario,
-                $classePlageMap,
-                $affectationsMap
-            );
+            $candidates = $this->buildCandidates($unit, $enseignants, $salles, $creneaux, $availability, $externalBusy, $creneauOrdreById, $scenario, $classePlageMap, $affectationsMap);
 
-            $valid = $candidates->filter(fn ($candidate) =>
-                $this->constraintEngine->allHardSatisfied($candidate, $unit, $state, $constraints)
-            );
-
-            $best = $valid->sortByDesc(fn ($candidate) =>
-                $this->constraintEngine->score($candidate, $unit, $state, $constraints)
-            )->first();
+            $valid = $candidates->filter(fn ($candidate) => $this->constraintEngine->allHardSatisfied($candidate, $unit, $state, $constraints));
+            $best = $valid->sortByDesc(fn ($candidate) => $this->constraintEngine->score($candidate, $unit, $state, $constraints))->first();
 
             if (!$best) {
-                $issues->push([
-                    'niveau'      => 'warning',
-                    'issue_code'  => 'UNPLACED_UNIT',
-                    'scope_type'  => 'classe',
-                    'scope_id'    => $unit['classe_id'],
-                    'message'     => 'Impossible de placer une unité de cours.',
-                    'details_json' => [
-                        'classe_id'  => $unit['classe_id'],
-                        'matiere_id' => $unit['matiere_id'],
-                    ],
-                ]);
+                $issues->push($this->issue('UNPLACED_UNIT', 'Impossible de placer une unité de cours.', $unit['classe_id'], $unit['matiere_id']));
                 continue;
             }
 
@@ -166,10 +139,15 @@ class GenerationPlanner
 
         $run->update([
             'status'       => 'completed',
-            'score_global' => $conformite['score_global'],
+            'score_global' => $conformite['score_global'] ?? 0,
             'summary_json' => [
                 'assignments_count'   => count($state['assignments']),
                 'issues_count'        => $issues->count(),
+                'classes_count'       => $classes->count(),
+                'teachers_count'      => $enseignants->count(),
+                'rooms_count'         => $salles->count(),
+                'course_slots_count'  => $creneaux->count(),
+                'demand_units_count'  => $units->count(),
                 'assignments_payload' => $state['assignments'],
             ],
             'conformite_json' => $conformite,
@@ -181,6 +159,21 @@ class GenerationPlanner
         }
 
         return $run->fresh(['issues', 'scenario']);
+    }
+
+    private function issue(string $code, string $message, ?int $classeId, ?int $matiereId): array
+    {
+        return [
+            'niveau' => 'warning',
+            'issue_code' => $code,
+            'scope_type' => $classeId ? 'classe' : 'global',
+            'scope_id' => $classeId,
+            'message' => $message,
+            'details_json' => array_filter([
+                'classe_id' => $classeId,
+                'matiere_id' => $matiereId,
+            ]),
+        ];
     }
 
     private function resolveClasses(EdtGenerationScenario $scenario): Collection
@@ -207,15 +200,12 @@ class GenerationPlanner
         array $classePlageMap = [],
         array $affectationsMap = []
     ): Collection {
-        $jours          = $scenario->jours_json ?: ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'];
+        $jours = $scenario->jours_json ?: ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'];
         $allowedCreneaux = collect($scenario->creneaux_json ?: [])->map(fn ($v) => (int) $v);
-        $allowedSalles   = collect($scenario->salles_json ?: [])->map(fn ($v) => (int) $v);
+        $allowedSalles = collect($scenario->salles_json ?: [])->map(fn ($v) => (int) $v);
 
-        // ── Filtrer les enseignants habilités pour cette matière + classe ──
         $eligibleIds = $affectationsMap[$unit['matiere_id']][$unit['classe_id']] ?? null;
-        $enseignantsCandidats = $eligibleIds !== null
-            ? $enseignants->whereIn('id', $eligibleIds)->values()
-            : $enseignants; // fallback si aucune affectation configurée
+        $enseignantsCandidats = $eligibleIds !== null ? $enseignants->whereIn('id', $eligibleIds)->values() : $enseignants;
 
         $candidates = collect();
 
@@ -225,54 +215,37 @@ class GenerationPlanner
                     continue;
                 }
 
-                // ── Early-exit plage : évite d'itérer tous les profs/salles ──
                 if (!empty($classePlageMap)) {
                     $crenauPlage = $creneau->plage;
                     if (!EdtClassePlageHoraire::isAllowed($classePlageMap, $unit['classe_id'], $jour, $crenauPlage)) {
-                        continue; // Ce créneau est interdit pour cette classe → skip tout le bloc
+                        continue;
                     }
                 }
 
                 foreach ($enseignantsCandidats as $enseignant) {
-                    // ── Disponibilité vacataire ──────────────────────────────
-                    $vacataireForbidden = collect($availability[$enseignant->id] ?? [])
-                        ->contains(function ($slot) use ($jour, $creneau) {
-                            return $slot['jour'] === $jour
-                                && (!empty($slot['creneau_id']) && (int) $slot['creneau_id'] === (int) $creneau->id)
-                                && in_array($slot['etat'], ['indisponible', 'a_eviter'], true);
-                        });
-
-                    $vacatairePreferred = collect($availability[$enseignant->id] ?? [])
-                        ->contains(function ($slot) use ($jour, $creneau) {
-                            return $slot['jour'] === $jour
-                                && (!empty($slot['creneau_id']) && (int) $slot['creneau_id'] === (int) $creneau->id)
-                                && $slot['etat'] === 'prefere';
-                        });
-
-                    // ── Occupation dans un autre établissement ───────────────
+                    $vacataireForbidden = collect($availability[$enseignant->id] ?? [])->contains(fn ($slot) => $slot['jour'] === $jour && (!empty($slot['creneau_id']) && (int) $slot['creneau_id'] === (int) $creneau->id) && in_array($slot['etat'], ['indisponible', 'a_eviter'], true));
+                    $vacatairePreferred = collect($availability[$enseignant->id] ?? [])->contains(fn ($slot) => $slot['jour'] === $jour && (!empty($slot['creneau_id']) && (int) $slot['creneau_id'] === (int) $creneau->id) && $slot['etat'] === 'prefere');
                     $externalBusyFlag = $externalBusy[$enseignant->id][$jour][$creneau->id] ?? false;
 
-                    // Si aucune salle dispo, on génère quand même un candidat sans salle
-                $sallesList = $salles->isEmpty()
-                    ? collect([null])
-                    : $salles->filter(fn ($s) =>
-                        $allowedSalles->isEmpty() || $allowedSalles->contains((int) $s->id)
-                    );
+                    $sallesList = $salles->isEmpty() ? collect([null]) : $salles->filter(fn ($s) => $allowedSalles->isEmpty() || $allowedSalles->contains((int) $s->id));
+                    if ($sallesList->isEmpty()) {
+                        $sallesList = collect([null]);
+                    }
 
                     foreach ($sallesList as $salle) {
                         $candidates->push([
-                            'jour'                  => $jour,
-                            'creneau_id'            => $creneau->id,
-                            'creneau_ordre'         => $creneau->ordre,
-                            'creneau_plage'         => $creneau->plage,
-                            'creneau_ordre_by_id'   => $creneauOrdreById,
-                            'enseignant_id'         => $enseignant->id,
-                            'salle_id'              => $salle?->id ?? null,
-                            'vacataire_forbidden'   => $vacataireForbidden,
-                            'vacataire_preferred'   => $vacatairePreferred,
-                            'external_busy'         => $externalBusyFlag,
-                            'policy_priority'       => $unit['policy_priority'] ?? null,
-                            'teacher_gap_penalty'   => 0,
+                            'jour' => $jour,
+                            'creneau_id' => $creneau->id,
+                            'creneau_ordre' => $creneau->ordre,
+                            'creneau_plage' => $creneau->plage,
+                            'creneau_ordre_by_id' => $creneauOrdreById,
+                            'enseignant_id' => $enseignant->id,
+                            'salle_id' => $salle?->id ?? null,
+                            'vacataire_forbidden' => $vacataireForbidden,
+                            'vacataire_preferred' => $vacatairePreferred,
+                            'external_busy' => $externalBusyFlag,
+                            'policy_priority' => $unit['policy_priority'] ?? null,
+                            'teacher_gap_penalty' => 0,
                         ]);
                     }
                 }
