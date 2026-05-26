@@ -40,7 +40,15 @@ class Matiere extends Model
 
     public function sousDisciplines(): HasMany
     {
-        return $this->hasMany(Matiere::class, 'parent_matiere_id')->orderBy('ordre')->orderBy('code');
+        $relation = $this->hasMany(Matiere::class, 'parent_matiere_id')
+            ->orderBy('ordre')
+            ->orderBy('code');
+
+        if ($this->doitMasquerSousDisciplinesPourClasseCourante()) {
+            $relation->whereRaw('1 = 0');
+        }
+
+        return $relation;
     }
 
     public function estSousDiscipline(): bool
@@ -82,5 +90,66 @@ class Matiere extends Model
     public function notes(): HasManyThrough
     {
         return $this->hasManyThrough(Note::class, Evaluation::class, 'matiere_id', 'evaluation_id');
+    }
+
+    private function doitMasquerSousDisciplinesPourClasseCourante(): bool
+    {
+        if (! app()->bound('request') || ! request()->route()) {
+            return false;
+        }
+
+        $classeParam = request()->route('classe');
+
+        if (! $classeParam) {
+            return false;
+        }
+
+        $classe = null;
+
+        if ($classeParam instanceof Classe) {
+            $classe = $classeParam;
+        } elseif (is_numeric($classeParam)) {
+            $classe = Classe::with('niveau')->find((int) $classeParam);
+        }
+
+        if (! $classe) {
+            return false;
+        }
+
+        return ! $this->classeUtiliseSousDisciplines($classe);
+    }
+
+    private function classeUtiliseSousDisciplines(Classe $classe): bool
+    {
+        $classe->loadMissing('niveau');
+        $niveau = $classe->niveau;
+
+        if (! $niveau) {
+            return false;
+        }
+
+        $cycle = $this->normaliserTexte((string) ($niveau->cycle ?? ''));
+        if (in_array($cycle, ['premier_cycle', 'premier cycle', 'college'], true)) {
+            return true;
+        }
+
+        $codeOuLibelle = $this->normaliserTexte(trim((string) ($niveau->code ?? '') . ' ' . (string) ($niveau->libelle ?? '')));
+
+        return preg_match('/(^|\s)(6|5|4|3)\s*(e|eme)?(\s|$)/', $codeOuLibelle) === 1;
+    }
+
+    private function normaliserTexte(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = strtr($value, [
+            'à' => 'a', 'á' => 'a', 'â' => 'a', 'ä' => 'a',
+            'ç' => 'c',
+            'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'î' => 'i', 'ï' => 'i',
+            'ô' => 'o', 'ö' => 'o',
+            'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+        ]);
+
+        return preg_replace('/\s+/', ' ', $value) ?: '';
     }
 }
