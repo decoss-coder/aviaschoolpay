@@ -36,6 +36,7 @@ class ReferentielService
 
         return $profil->lignes
             ->sortBy('ordre_montage')
+            ->filter(fn ($ligne) => $this->matiereAutoriseePourClasse($classe, $ligne->matiere?->code, $ligne->matiere?->nom))
             ->map(function ($ligne) use ($classe) {
                 return [
                     'classe_id' => $classe->id,
@@ -82,6 +83,10 @@ class ReferentielService
                 continue;
             }
 
+            if (! $this->matiereAutoriseePourClasse($classe, $row->matiere?->code, $row->matiere?->nom)) {
+                continue;
+            }
+
             $volume = (float) ($row->volume_horaire_hebdo ?: 1);
             $nb = max(1, (int) ceil($volume));
             $minutes = (int) round($volume * 60);
@@ -106,5 +111,59 @@ class ReferentielService
         }
 
         return $out->values();
+    }
+
+    private function matiereAutoriseePourClasse(Classe $classe, ?string $code, ?string $nom): bool
+    {
+        if (! $this->estLv2($code, $nom)) {
+            return true;
+        }
+
+        return $this->classeAccepteLv2($classe);
+    }
+
+    private function estLv2(?string $code, ?string $nom): bool
+    {
+        $text = $this->normaliserTexte(trim((string) $code.' '.(string) $nom));
+
+        return str_contains($text, 'lv2')
+            || str_contains($text, 'espagnol')
+            || str_contains($text, 'esp')
+            || str_contains($text, 'allemand')
+            || str_contains($text, 'all');
+    }
+
+    private function classeAccepteLv2(Classe $classe): bool
+    {
+        $classe->loadMissing('niveau');
+        $niveau = $classe->niveau;
+
+        $txt = $this->normaliserTexte(trim(
+            (string) ($classe->nom ?? '').' '.
+            (string) ($niveau?->code ?? '').' '.
+            (string) ($niveau?->libelle ?? '').' '.
+            (string) ($niveau?->cycle ?? '')
+        ));
+
+        if (str_contains($txt, 'second_cycle') || str_contains($txt, 'second cycle') || str_contains($txt, 'seconde') || str_contains($txt, '2nde') || str_contains($txt, '1ere') || str_contains($txt, 'premiere') || str_contains($txt, 'tle') || str_contains($txt, 'terminale')) {
+            return true;
+        }
+
+        return preg_match('/(^|\s)(4|3)\s*(e|eme)?(\s|$)/', $txt) === 1;
+    }
+
+    private function normaliserTexte(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = strtr($value, [
+            'à' => 'a', 'á' => 'a', 'â' => 'a', 'ä' => 'a',
+            'ç' => 'c',
+            'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'î' => 'i', 'ï' => 'i',
+            'ô' => 'o', 'ö' => 'o',
+            'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+        ]);
+
+        return preg_replace('/\s+/', ' ', $value) ?: '';
     }
 }
