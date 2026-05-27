@@ -77,6 +77,7 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
             ['code' => 'HG', 'nom' => 'Histoire-Géographie', 'coef' => 2, 'groupe' => 'lettres'],
             ['code' => 'ANG', 'nom' => 'Anglais', 'coef' => 2, 'groupe' => 'lettres'],
             ['code' => 'ESP', 'nom' => 'Espagnol', 'coef' => 1, 'groupe' => 'lettres'],
+            ['code' => 'ALL', 'nom' => 'Allemand', 'coef' => 1, 'groupe' => 'lettres'],
             ['code' => 'EPS', 'nom' => 'Éducation Physique et Sportive', 'coef' => 1, 'groupe' => 'autres'],
             ['code' => 'EDHC', 'nom' => 'EDHC', 'coef' => 1, 'groupe' => 'autres'],
             ['code' => 'PHILO', 'nom' => 'Philosophie', 'coef' => 2, 'groupe' => 'lettres'],
@@ -107,7 +108,7 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
             ['nom' => 'Bamba', 'prenom' => 'Awa', 'sexe' => 'F', 'statut' => 'titulaire', 'disciplines' => ['HG', 'EDHC']],
             ['nom' => 'Yao', 'prenom' => 'Serge', 'sexe' => 'M', 'statut' => 'titulaire', 'disciplines' => ['ANG', 'ESP']],
             ['nom' => 'Coulibaly', 'prenom' => 'Nadia', 'sexe' => 'F', 'statut' => 'contractuel', 'disciplines' => ['EPS']],
-            ['nom' => 'Nguessan', 'prenom' => 'Patrick', 'sexe' => 'M', 'statut' => 'vacataire', 'disciplines' => ['PHILO']],
+            ['nom' => 'Nguessan', 'prenom' => 'Patrick', 'sexe' => 'M', 'statut' => 'vacataire', 'disciplines' => ['PHILO', 'ALL']],
             ['nom' => 'Ouattara', 'prenom' => 'Fatou', 'sexe' => 'F', 'statut' => 'vacataire', 'disciplines' => ['FR']],
             ['nom' => 'Koffi', 'prenom' => 'Armand', 'sexe' => 'M', 'statut' => 'vacataire', 'disciplines' => ['MATH']],
             ['nom' => 'Diabaté', 'prenom' => 'Aminata', 'sexe' => 'F', 'statut' => 'vacataire', 'disciplines' => ['SVT']],
@@ -211,13 +212,19 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
             );
         }
 
-        $matierePlan = ['FR' => 4, 'MATH' => 4, 'SVT' => 2, 'PC' => 2, 'HG' => 2, 'ANG' => 2, 'ESP' => 2, 'EPS' => 2, 'EDHC' => 1];
+        $basePlan = ['FR' => 4, 'MATH' => 4, 'SVT' => 2, 'PC' => 2, 'HG' => 2, 'ANG' => 2, 'EPS' => 2, 'EDHC' => 1];
+        $lv2Plan = ['ESP' => 2, 'ALL' => 2];
         $secondaryExtras = ['PHILO' => 2];
         $affectationCount = 0;
 
         foreach ($classes as $classe) {
-            $plan = $matierePlan;
-            if (! str_starts_with($classe->nom, '6') && ! str_starts_with($classe->nom, '5') && ! str_starts_with($classe->nom, '4') && ! str_starts_with($classe->nom, '3')) {
+            $plan = $basePlan;
+
+            if (preg_match('/^(4|3)/', $classe->nom) || ! preg_match('/^(6|5|4|3)/', $classe->nom)) {
+                $plan = $plan + $lv2Plan;
+            }
+
+            if (! preg_match('/^(6|5|4|3)/', $classe->nom)) {
                 $plan = $plan + $secondaryExtras;
             }
 
