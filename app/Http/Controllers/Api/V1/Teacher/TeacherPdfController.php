@@ -31,7 +31,7 @@ class TeacherPdfController extends Controller
 {
     use ResolvesTeacherContext;
 
-    // �€�€ Emploi du temps : données JSON �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
+    // �€�€ Emploi du temps : données JSON �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
 
     public function scheduleGrid(Request $request): JsonResponse
     {
@@ -86,7 +86,7 @@ class TeacherPdfController extends Controller
         ], 'Grille EDT enseignant.');
     }
 
-    // �€�€ Emploi du temps : PDF �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
+    // �€�€ Emploi du temps : PDF �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
 
     public function schedulePdf(Request $request): HttpResponse
     {
@@ -181,7 +181,7 @@ class TeacherPdfController extends Controller
             ->download($fname);
     }
 
-    // �€�€ Feuille de note : liste matières �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
+    // �€�€ Feuille de note : liste matières �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
 
     public function feuilleIndex(Request $request, Classe $classe): JsonResponse
     {
@@ -194,25 +194,50 @@ class TeacherPdfController extends Controller
         $matieres = Affectation::where('enseignant_id', $ens->id)
             ->where('classe_id', $classe->id)
             ->where('active', true)
-            ->with('matiere:id,nom,code')
+            ->with(['matiere' => function ($q) {
+                $q->select('id', 'nom', 'code', 'parent_matiere_id')
+                  ->with(['sousDisciplines' => fn ($qq) => $qq->orderBy('ordre')->orderBy('code')]);
+            }])
             ->get()
             ->pluck('matiere')
             ->filter()
             ->unique('id')
             ->values();
 
+        $classe->loadMissing('niveau:id,cycle');
+        $cycle = strtolower($classe->niveau?->cycle ?? '');
+        $estPremierCycle = in_array($cycle, ['premier_cycle', 'premier', '1er_cycle', 'cycle_1'], true);
+
+        $matieresOut = $matieres->map(function ($m) use ($estPremierCycle) {
+            $sds = $estPremierCycle ? ($m->sousDisciplines ?? collect()) : collect();
+            return [
+                'id'                   => $m->id,
+                'nom'                  => $m->nom,
+                'code'                 => $m->code,
+                'parent_matiere_id'    => $m->parent_matiere_id,
+                'has_sous_disciplines' => $sds->isNotEmpty(),
+                'sous_disciplines'     => $sds->map(fn ($sd) => [
+                    'id'    => $sd->id,
+                    'code'  => $sd->code,
+                    'nom'   => $sd->nom,
+                    'poids' => (float) ($sd->poids_dans_parent ?? 1),
+                ])->values(),
+            ];
+        });
+
         $trimestres = $annee
             ? Trimestre::where('annee_scolaire_id', $annee->id)->orderBy('numero')->get(['id', 'libelle', 'numero'])
             : collect();
 
         return ApiEnvelope::success([
-            'classe'     => $classe->only(['id', 'nom']),
-            'matieres'   => $matieres,
-            'trimestres' => $trimestres,
+            'classe'            => $classe->only(['id', 'nom']),
+            'matieres'          => $matieresOut,
+            'trimestres'        => $trimestres,
+            'est_premier_cycle' => $estPremierCycle,
         ], 'Données feuille de note.');
     }
 
-    // �€�€ Feuille de note : PDF �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
+    // �€�€ Feuille de note : PDF �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
 
     public function feuillePdf(Request $request, Classe $classe): HttpResponse
     {
@@ -253,7 +278,7 @@ class TeacherPdfController extends Controller
         ])->setPaper('a4', $orientation)->download($fname);
     }
 
-    // �€�€ Feuille de note : Excel �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
+    // �€�€ Feuille de note : Excel �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
 
     public function feuilleExcel(Request $request, Classe $classe): BinaryFileResponse
     {
@@ -284,7 +309,7 @@ class TeacherPdfController extends Controller
         );
     }
 
-    // �€�€ Fiche classe (liste élèves) : PDF �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
+    // �€�€ Fiche classe (liste élèves) : PDF �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
 
     public function ficheClassePdf(Request $request, Classe $classe): HttpResponse
     {
@@ -321,7 +346,7 @@ class TeacherPdfController extends Controller
         return $pdf->download($fname);
     }
 
-    // �€�€ Fiche classe : Excel �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
+    // �€�€ Fiche classe : Excel �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
 
     public function ficheClasseExcel(Request $request, Classe $classe): BinaryFileResponse
     {
@@ -347,7 +372,7 @@ class TeacherPdfController extends Controller
         );
     }
 
-    // �€�€ Helpers privés �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
+    // �€�€ Helpers privés �€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€�€
 
     private function creneaux(int $etabId): Collection
     {
