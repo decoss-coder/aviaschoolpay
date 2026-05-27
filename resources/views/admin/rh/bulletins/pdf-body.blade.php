@@ -48,6 +48,17 @@
         ->orderBy('ordre')->orderBy('nom')
         ->get();
 
+    // Premier cycle : si un Français parent possède des sous-disciplines, on masque tout autre Français simple.
+    // Cela évite d'afficher deux lignes « Français » sur les bulletins de 6e/5e/4e/3e.
+    if ($isPremierCycle()) {
+        $francaisStructure = $matieres->first(fn($m) => $isFrancais($m) && $m->sousDisciplines->isNotEmpty());
+        if ($francaisStructure) {
+            $matieres = $matieres
+                ->reject(fn($m) => $isFrancais($m) && (int) $m->id !== (int) $francaisStructure->id)
+                ->values();
+        }
+    }
+
     $enseignants = \Illuminate\Support\Facades\DB::table('affectations')
         ->join('enseignants', 'enseignants.id', '=', 'affectations.enseignant_id')
         ->where('affectations.classe_id', $classe?->id)
