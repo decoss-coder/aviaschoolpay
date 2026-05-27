@@ -15,17 +15,13 @@ use App\Services\Pedagogie\MoyenneAnnuelleService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
-/**
- * Génération des bulletins par la direction.
- *
- *  - calcule les moyennes par matière à partir des notes ET/OU des moyennes saisies directement
- *  - calcule la moyenne générale pondérée par les coefficients matière
- *  - détermine le rang et la mention
- *  - rend un PDF par élève ou bulletin de classe
- */
 class BulletinAdminController extends Controller
 {
+    private array $columnsCache = [];
+
     private function etabId(Request $request): int
     {
         return (int) $request->user()->etablissement_id;
@@ -39,42 +35,50 @@ class BulletinAdminController extends Controller
         $classes = $annee
             ? Classe::where('etablissement_id', $etabId)
                 ->where('annee_scolaire_id', $annee->id)
-                ->where('active', true)->orderBy('nom')->get()
+                ->where('active', true)
+                ->orderBy('nom')
+                ->get()
             : collect();
 
         $classeId = $request->input('classe_id');
-        $trimestreId = $request->input('trimestre_id', $trimestres->first(fn($t) => $t->en_cours)?->id ?? $trimestres->first()?->id);
+        $trimestreId = $request->input('trimestre_id', $trimestres->first(fn ($t) => $t->en_cours)?->id ?? $trimestres->first()?->id);
 
         $eleves = collect();
         if ($classeId && $trimestreId && $annee) {
             $eleves = Eleve::where('classe_id', $classeId)
                 ->where('actif', true)
                 ->inscritsCetteAnnee($annee->id)
-                ->orderBy('nom')->orderBy('prenom')
+                ->orderBy('nom')
+                ->orderBy('prenom')
                 ->get();
         }
 
-        // Récupérer les moyennes générales si déjà calculées
         $moyennesGenerales = $classeId && $trimestreId
             ? MoyenneGenerale::where('classe_id', $classeId)
                 ->where('trimestre_id', $trimestreId)
-                ->get()->keyBy('eleve_id')
+                ->get()
+                ->keyBy('eleve_id')
             : collect();
 
-        // Moyennes annuelles (si calculées)
-        $moyennesAnnuelles = $classeId && $annee
+        $moyennesAnnuelles = $classeId && $annee && Schema::hasTable('moyennes_annuelles')
             ? \App\Models\MoyenneAnnuelle::where('classe_id', $classeId)
                 ->where('annee_scolaire_id', $annee->id)
-                ->get()->keyBy('eleve_id')
+                ->get()
+                ->keyBy('eleve_id')
             : collect();
 
-        return view('admin.rh.bulletins.index',
-            compact('annee', 'classes', 'trimestres', 'classeId', 'trimestreId', 'eleves', 'moyennesGenerales', 'moyennesAnnuelles'));
+        return view('admin.rh.bulletins.index', compact(
+            'annee',
+            'classes',
+            'trimestres',
+            'classeId',
+            'trimestreId',
+            'eleves',
+            'moyennesGenerales',
+            'moyennesAnnuelles'
+        ));
     }
 
-    /**
-     * Lance le calcul/recalcul des moyennes pour une classe + trimestre.
-     */
     public function calculer(Request $request)
     {
         $data = $request->validate([
@@ -85,7 +89,6 @@ class BulletinAdminController extends Controller
         $etabId = $this->etabId($request);
         $classe = Classe::where('etablissement_id', $etabId)->findOrFail($data['classe_id']);
         $trimestre = Trimestre::findOrFail($data['trimestre_id']);
-
         $annee = AnneeScolaire::findOrFail($trimestre->annee_scolaire_id);
         $eleves = Eleve::where('classe_id', $classe->id)->where('actif', true)->get();
 
@@ -93,21 +96,26 @@ class BulletinAdminController extends Controller
             foreach ($eleves as $eleve) {
                 $this->calculerPourEleve($eleve, $classe, $trimestre, $annee);
             }
-            $this->calculerRangs($classe, $trimestre);
 
-            // Recalcul automatique de la moyenne annuelle (intègre coefs trimestres)
-            MoyenneAnnuelleService::calculerPourClasse($classe, $annee);
+            $this->calculerRangs($classe, $trimestre);
         });
+
+        try {
+            MoyenneAnnuelleService::calculerPourClasse($classe, $annee);
+        } catch (\Throwable $e) {
+            Log::warning('Calcul moyenne annuelle ignoré pendant calcul bulletin', [
+                'classe_id' => $classe->id,
+                'annee_id' => $annee->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return redirect()->route('admin.rh.bulletins.index', [
             'classe_id' => $classe->id,
             'trimestre_id' => $trimestre->id,
-        ])->with('success', 'Moyennes calculées + rangs établis + moyennes annuelles mises à jour (coefs trimestres pris en compte).');
+        ])->with('success', 'Moyennes calculées et rangs établis.');
     }
 
-    /**
-     * Pour un élève : calcule moyenne par matière puis moyenne générale.
-     */
     private function calculerPourEleve(Eleve $eleve, Classe $classe, Trimestre $trimestre, AnneeScolaire $annee): void
     {
         $matieres = DB::table('affectations')
@@ -115,112 +123,117 @@ class BulletinAdminController extends Controller
             ->where('affectations.classe_id', $classe->id)
             ->where('affectations.active', true)
             ->where('affectations.annee_scolaire_id', $annee->id)
+            ->whereNull('matieres.parent_matiere_id')
             ->select('matieres.id', 'matieres.coefficient_defaut')
             ->distinct()
             ->get();
 
-        $totalPoints = 0;
-        $totalCoefs  = 0;
+        $totalPoints = 0.0;
+        $totalCoefs = 0.0;
 
         foreach ($matieres as $matRow) {
-            $matiereId = $matRow->id;
-            $coefMat = (float) ($matRow->coefficient_defaut ?? 1);
+            $matiereId = (int) $matRow->id;
+            $coefMat = max(0.0, (float) ($matRow->coefficient_defaut ?? 1));
+            if ($coefMat <= 0) {
+                $coefMat = 1.0;
+            }
 
-            // 1) Moyenne déjà saisie directement ?
-            $moyDirect = MoyenneMatiere::where('eleve_id', $eleve->id)
+            $moyDirectQuery = MoyenneMatiere::where('eleve_id', $eleve->id)
                 ->where('matiere_id', $matiereId)
-                ->where('trimestre_id', $trimestre->id)
-                ->where('saisie_directe', true)
-                ->first();
+                ->where('trimestre_id', $trimestre->id);
+
+            if ($this->hasColumn('moyennes_matieres', 'saisie_directe')) {
+                $moyDirectQuery->where('saisie_directe', true);
+            }
+
+            $moyDirect = $moyDirectQuery->first();
 
             if ($moyDirect) {
                 $moyenne = (float) $moyDirect->moyenne;
             } else {
-                // 2) Sinon : moyenne calculée à partir des notes individuelles
-                $notes = Note::join('evaluations', 'evaluations.id', '=', 'notes.evaluation_id')
+                $notesQuery = Note::join('evaluations', 'evaluations.id', '=', 'notes.evaluation_id')
                     ->where('notes.eleve_id', $eleve->id)
                     ->where('evaluations.matiere_id', $matiereId)
                     ->where('evaluations.trimestre_id', $trimestre->id)
-                    ->whereNotNull('notes.note')
-                    ->where('notes.absent', false)
-                    ->where('notes.dispense', false)
-                    ->select(
-                        'notes.note', 'evaluations.note_sur', 'evaluations.coefficient'
-                    )->get();
+                    ->whereNotNull('notes.note');
 
-                if ($notes->isEmpty()) continue;
-
-                $sommePoints = 0; $sommeCoefs = 0;
-                foreach ($notes as $n) {
-                    $bareme = (float) ($n->note_sur ?: 20);
-                    $coef   = (float) ($n->coefficient ?: 1);
-                    $n20    = $bareme > 0 ? ((float) $n->note / $bareme) * 20 : (float) $n->note;
-                    $sommePoints += $n20 * $coef;
-                    $sommeCoefs  += $coef;
+                if ($this->hasColumn('notes', 'absent')) {
+                    $notesQuery->where(function ($q) {
+                        $q->where('notes.absent', false)->orWhereNull('notes.absent');
+                    });
                 }
-                if ($sommeCoefs <= 0) continue;
+
+                if ($this->hasColumn('notes', 'dispense')) {
+                    $notesQuery->where(function ($q) {
+                        $q->where('notes.dispense', false)->orWhereNull('notes.dispense');
+                    });
+                }
+
+                $select = ['notes.note'];
+                $select[] = $this->hasColumn('evaluations', 'note_sur') ? 'evaluations.note_sur' : DB::raw('20 as note_sur');
+                $select[] = $this->hasColumn('evaluations', 'coefficient') ? 'evaluations.coefficient' : DB::raw('1 as coefficient');
+
+                $notes = $notesQuery->select($select)->get();
+                if ($notes->isEmpty()) {
+                    continue;
+                }
+
+                $sommePoints = 0.0;
+                $sommeCoefs = 0.0;
+                foreach ($notes as $note) {
+                    $bareme = (float) ($note->note_sur ?: 20);
+                    $coef = (float) ($note->coefficient ?: 1);
+                    $noteSur20 = $bareme > 0 ? ((float) $note->note / $bareme) * 20 : (float) $note->note;
+                    $sommePoints += $noteSur20 * $coef;
+                    $sommeCoefs += $coef;
+                }
+
+                if ($sommeCoefs <= 0) {
+                    continue;
+                }
+
                 $moyenne = $sommePoints / $sommeCoefs;
 
-                // Upsert moyenne_matieres
-                MoyenneMatiere::updateOrCreate(
-                    ['eleve_id' => $eleve->id, 'matiere_id' => $matiereId, 'trimestre_id' => $trimestre->id],
-                    [
-                        'classe_id'        => $classe->id,
-                        'moyenne'          => round($moyenne, 2),
-                        'moyenne_ponderee' => round($moyenne * $coefMat, 2),
-                        'saisie_directe'   => false,
-                    ]
-                );
+                $this->upsertMoyenneMatiere($eleve->id, $matiereId, $trimestre->id, [
+                    'classe_id' => $classe->id,
+                    'moyenne' => round($moyenne, 2),
+                    'moyenne_ponderee' => round($moyenne * $coefMat, 2),
+                    'saisie_directe' => false,
+                    'publie' => true,
+                ]);
             }
 
             $totalPoints += $moyenne * $coefMat;
-            $totalCoefs  += $coefMat;
+            $totalCoefs += $coefMat;
         }
 
-        $moyGen = $totalCoefs > 0 ? round($totalPoints / $totalCoefs, 2) : null;
+        $moyenneGenerale = $totalCoefs > 0 ? round($totalPoints / $totalCoefs, 2) : null;
+        [$totalAbs, $absJust, $totalRet] = $this->presenceStats($eleve, $trimestre);
+        $mention = $this->calculerMention($moyenneGenerale);
 
-        // Absences/retards du trimestre
-        $totalAbs = PresenceEleve::where('eleve_id', $eleve->id)
-            ->whereBetween('date', [$trimestre->date_debut, $trimestre->date_fin])
-            ->where('statut', 'absent')->count();
-        $absJust = PresenceEleve::where('eleve_id', $eleve->id)
-            ->whereBetween('date', [$trimestre->date_debut, $trimestre->date_fin])
-            ->where('statut', 'absent')->where('justifie', true)->count();
-        $totalRet = PresenceEleve::where('eleve_id', $eleve->id)
-            ->whereBetween('date', [$trimestre->date_debut, $trimestre->date_fin])
-            ->where('statut', 'retard')->count();
-
-        $mention = $this->calculerMention($moyGen);
-
-        MoyenneGenerale::updateOrCreate(
-            ['eleve_id' => $eleve->id, 'trimestre_id' => $trimestre->id],
-            [
-                'classe_id'         => $classe->id,
-                'annee_scolaire_id' => $annee->id,
-                'moyenne_generale'  => $moyGen,
-                'total_points'      => round($totalPoints, 2),
-                'total_coefficients'=> $totalCoefs,
-                'mention'           => $mention,
-                'total_absences'    => $totalAbs,
-                'absences_justifiees' => $absJust,
-                'total_retards'     => $totalRet,
-            ]
-        );
+        $this->upsertMoyenneGenerale($eleve->id, $trimestre->id, [
+            'classe_id' => $classe->id,
+            'annee_scolaire_id' => $annee->id,
+            'moyenne_generale' => $moyenneGenerale,
+            'total_points' => round($totalPoints, 2),
+            'total_coefficients' => $totalCoefs,
+            'mention' => $mention,
+            'total_absences' => $totalAbs,
+            'absences_justifiees' => $absJust,
+            'total_retards' => $totalRet,
+        ]);
     }
 
     private function calculerMention(?float $moy): string
     {
         if ($moy === null) return 'aucune';
-        if ($moy >= 16)  return 'felicitations';
-        if ($moy >= 14)  return 'tableau_honneur';
-        if ($moy >= 12)  return 'encouragements';
-        if ($moy < 8)    return 'avertissement';
+        if ($moy >= 16) return 'felicitations';
+        if ($moy >= 14) return 'tableau_honneur';
+        if ($moy >= 12) return 'encouragements';
+        if ($moy < 8) return 'avertissement';
         return 'aucune';
     }
 
-    /**
-     * Calcule les rangs (1er, 2e...) pour la classe.
-     */
     private function calculerRangs(Classe $classe, Trimestre $trimestre): void
     {
         $generales = MoyenneGenerale::where('classe_id', $classe->id)
@@ -230,36 +243,40 @@ class BulletinAdminController extends Controller
             ->get();
 
         $effectif = $generales->count();
-        if ($effectif === 0) return;
+        if ($effectif === 0) {
+            return;
+        }
 
         $moyMax = $generales->first()->moyenne_generale;
         $moyMin = $generales->last()->moyenne_generale;
         $moyClasse = round($generales->avg('moyenne_generale'), 2);
 
         foreach ($generales as $i => $g) {
-            $g->update([
-                'rang'             => $i + 1,
-                'effectif_classe'  => $effectif,
-                'moyenne_premier'  => $moyMax,
-                'moyenne_dernier'  => $moyMin,
-                'moyenne_classe'   => $moyClasse,
-            ]);
+            $payload = [
+                'rang' => $i + 1,
+                'effectif_classe' => $effectif,
+                'moyenne_premier' => $moyMax,
+                'moyenne_dernier' => $moyMin,
+                'moyenne_classe' => $moyClasse,
+            ];
+
+            DB::table('moyennes_generales')
+                ->where('id', $g->id)
+                ->update($this->filterColumns('moyennes_generales', $payload));
         }
     }
 
-    /**
-     * Génère le PDF du bulletin pour un élève.
-     */
     public function pdf(Request $request, Eleve $eleve, Trimestre $trimestre)
     {
         abort_unless($eleve->etablissement_id === $this->etabId($request), 404);
 
         $classe = $eleve->classe;
-        $annee  = AnneeScolaire::find($trimestre->annee_scolaire_id);
-        $etab   = $eleve->etablissement;
+        $annee = AnneeScolaire::find($trimestre->annee_scolaire_id);
+        $etab = $eleve->etablissement;
 
         $generale = MoyenneGenerale::where('eleve_id', $eleve->id)
-            ->where('trimestre_id', $trimestre->id)->first();
+            ->where('trimestre_id', $trimestre->id)
+            ->first();
 
         abort_if(!$generale, 422, 'La moyenne générale n\'a pas encore été calculée. Lancez le calcul d\'abord.');
 
@@ -268,93 +285,90 @@ class BulletinAdminController extends Controller
             ->with('matiere')
             ->get();
 
-        $pdf = Pdf::loadView('admin.rh.bulletins.pdf', compact(
-            'etab', 'annee', 'trimestre', 'classe', 'eleve', 'generale', 'moyennes'
-        ))->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView('admin.rh.bulletins.pdf', compact('etab', 'annee', 'trimestre', 'classe', 'eleve', 'generale', 'moyennes'))
+            ->setPaper('a4', 'portrait');
 
         $fname = sprintf('bulletin_%s_%s_T%d.pdf',
             preg_replace('/[^a-zA-Z0-9]/', '-', $eleve->nom),
             preg_replace('/[^a-zA-Z0-9]/', '-', $classe?->nom ?? ''),
-            $trimestre->numero);
+            $trimestre->numero
+        );
 
         return $pdf->download($fname);
     }
 
-    /**
-     * Génère un ZIP de tous les bulletins de la classe.
-     */
     public function pdfClasse(Request $request)
     {
         $data = $request->validate([
-            'classe_id'    => 'required|exists:classes,id',
+            'classe_id' => 'required|exists:classes,id',
             'trimestre_id' => 'required|exists:trimestres,id',
         ]);
 
         $classe = Classe::where('etablissement_id', $this->etabId($request))->findOrFail($data['classe_id']);
         $trimestre = Trimestre::findOrFail($data['trimestre_id']);
         $eleves = Eleve::where('classe_id', $classe->id)->where('actif', true)->get();
-        $annee  = AnneeScolaire::find($trimestre->annee_scolaire_id);
-        $etab   = $classe->etablissement;
+        $annee = AnneeScolaire::find($trimestre->annee_scolaire_id);
+        $etab = $classe->etablissement;
 
         $bulletins = [];
         foreach ($eleves as $eleve) {
             $generale = MoyenneGenerale::where('eleve_id', $eleve->id)
-                ->where('trimestre_id', $trimestre->id)->first();
-            if (!$generale) continue;
+                ->where('trimestre_id', $trimestre->id)
+                ->first();
+            if (!$generale) {
+                continue;
+            }
 
             $moyennes = MoyenneMatiere::where('eleve_id', $eleve->id)
                 ->where('trimestre_id', $trimestre->id)
-                ->with('matiere')->get();
+                ->with('matiere')
+                ->get();
 
             $bulletins[] = compact('eleve', 'generale', 'moyennes');
         }
 
-        $pdf = Pdf::loadView('admin.rh.bulletins.pdf-classe', compact(
-            'etab', 'annee', 'trimestre', 'classe', 'bulletins'
-        ))->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView('admin.rh.bulletins.pdf-classe', compact('etab', 'annee', 'trimestre', 'classe', 'bulletins'))
+            ->setPaper('a4', 'portrait');
 
         return $pdf->download("bulletins_{$classe->nom}_T{$trimestre->numero}.pdf");
     }
 
-    /**
-     * Génération en masse avec disposition configurable (1/2/3/4 bulletins par page A4).
-     * Auto-calcule les moyennes générales si elles ne l'ont pas encore été.
-     */
     public function pdfMasse(Request $request)
     {
         $data = $request->validate([
-            'classe_id'    => 'required|exists:classes,id',
+            'classe_id' => 'required|exists:classes,id',
             'trimestre_id' => 'required|exists:trimestres,id',
-            'disposition'  => 'required|in:1,2,3,4',
-            'eleve_ids'    => 'required|array|min:1',
-            'eleve_ids.*'  => 'exists:eleves,id',
+            'disposition' => 'required|in:1,2,3,4',
+            'eleve_ids' => 'required|array|min:1',
+            'eleve_ids.*' => 'exists:eleves,id',
         ]);
 
-        $etabId    = $this->etabId($request);
-        $classe    = Classe::where('etablissement_id', $etabId)->findOrFail($data['classe_id']);
+        $etabId = $this->etabId($request);
+        $classe = Classe::where('etablissement_id', $etabId)->findOrFail($data['classe_id']);
         $trimestre = Trimestre::findOrFail($data['trimestre_id']);
-        $annee     = AnneeScolaire::findOrFail($trimestre->annee_scolaire_id);
-        $etab      = $classe->etablissement;
+        $annee = AnneeScolaire::findOrFail($trimestre->annee_scolaire_id);
+        $etab = $classe->etablissement;
         $disposition = (int) $data['disposition'];
-
         $bulletins = [];
 
         DB::transaction(function () use ($data, $classe, $trimestre, $annee, &$bulletins) {
             foreach ($data['eleve_ids'] as $eleveId) {
                 $eleve = Eleve::findOrFail($eleveId);
-
-                // Auto-calculer si pas encore fait
                 $generale = MoyenneGenerale::where('eleve_id', $eleve->id)
-                    ->where('trimestre_id', $trimestre->id)->first();
+                    ->where('trimestre_id', $trimestre->id)
+                    ->first();
 
                 if (!$generale) {
                     $this->calculerPourEleve($eleve, $classe, $trimestre, $annee);
                     $this->calculerRangs($classe, $trimestre);
                     $generale = MoyenneGenerale::where('eleve_id', $eleve->id)
-                        ->where('trimestre_id', $trimestre->id)->first();
+                        ->where('trimestre_id', $trimestre->id)
+                        ->first();
                 }
 
-                if (!$generale) return;
+                if (!$generale) {
+                    continue;
+                }
 
                 $moyennes = MoyenneMatiere::where('eleve_id', $eleve->id)
                     ->where('trimestre_id', $trimestre->id)
@@ -371,17 +385,83 @@ class BulletinAdminController extends Controller
             return back()->withErrors(['msg' => 'Aucun bulletin disponible. Vérifiez que des moyennes ont été saisies.']);
         }
 
-        $pdf = Pdf::loadView('admin.rh.bulletins.pdf-masse', compact(
-            'etab', 'annee', 'trimestre', 'classe', 'bulletins', 'disposition'
-        ))->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView('admin.rh.bulletins.pdf-masse', compact('etab', 'annee', 'trimestre', 'classe', 'bulletins', 'disposition'))
+            ->setPaper('a4', 'portrait');
 
-        $fname = sprintf(
-            'bulletins_%s_T%d_%deleves.pdf',
+        $fname = sprintf('bulletins_%s_T%d_%deleves.pdf',
             preg_replace('/[^a-zA-Z0-9]/', '-', $classe->nom),
             $trimestre->numero,
             count($bulletins)
         );
 
         return $pdf->download($fname);
+    }
+
+    private function presenceStats(Eleve $eleve, Trimestre $trimestre): array
+    {
+        if (!Schema::hasTable('presence_eleves') || !$this->hasColumn('presence_eleves', 'date') || !$this->hasColumn('presence_eleves', 'statut')) {
+            return [0, 0, 0];
+        }
+
+        $base = PresenceEleve::where('eleve_id', $eleve->id)
+            ->whereBetween('date', [$trimestre->date_debut, $trimestre->date_fin]);
+
+        $totalAbs = (clone $base)->where('statut', 'absent')->count();
+        $absJust = $this->hasColumn('presence_eleves', 'justifie')
+            ? (clone $base)->where('statut', 'absent')->where('justifie', true)->count()
+            : 0;
+        $totalRet = (clone $base)->where('statut', 'retard')->count();
+
+        return [$totalAbs, $absJust, $totalRet];
+    }
+
+    private function upsertMoyenneMatiere(int $eleveId, int $matiereId, int $trimestreId, array $values): void
+    {
+        $keys = $this->filterColumns('moyennes_matieres', [
+            'eleve_id' => $eleveId,
+            'matiere_id' => $matiereId,
+            'trimestre_id' => $trimestreId,
+        ]);
+
+        $values = $this->filterColumns('moyennes_matieres', $values);
+        if (empty($keys) || empty($values)) {
+            return;
+        }
+
+        DB::table('moyennes_matieres')->updateOrInsert($keys, $values);
+    }
+
+    private function upsertMoyenneGenerale(int $eleveId, int $trimestreId, array $values): void
+    {
+        $keys = $this->filterColumns('moyennes_generales', [
+            'eleve_id' => $eleveId,
+            'trimestre_id' => $trimestreId,
+        ]);
+
+        $values = $this->filterColumns('moyennes_generales', $values);
+        if (empty($keys) || empty($values)) {
+            return;
+        }
+
+        DB::table('moyennes_generales')->updateOrInsert($keys, $values);
+    }
+
+    private function filterColumns(string $table, array $payload): array
+    {
+        return array_intersect_key($payload, array_flip($this->columns($table)));
+    }
+
+    private function hasColumn(string $table, string $column): bool
+    {
+        return in_array($column, $this->columns($table), true);
+    }
+
+    private function columns(string $table): array
+    {
+        if (!array_key_exists($table, $this->columnsCache)) {
+            $this->columnsCache[$table] = Schema::hasTable($table) ? Schema::getColumnListing($table) : [];
+        }
+
+        return $this->columnsCache[$table];
     }
 }
