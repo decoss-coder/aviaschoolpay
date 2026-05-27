@@ -41,7 +41,11 @@ class MoyennesGrilleAdminController extends Controller
 
         // Detect premier cycle
         $classe?->load('niveau');
-        $estPremierCycle = $classe && strtolower($classe->niveau?->cycle ?? '') === 'premier';
+        $estPremierCycle = $classe && in_array(
+            strtolower($classe->niveau?->cycle ?? ''),
+            ['premier_cycle', 'premier', '1er_cycle', 'cycle_1'],
+            true
+        );
 
         $eleves = $classe ? Eleve::where('classe_id', $classe->id)->where('actif', true)
             ->when($annee, fn ($q) => $q->inscritsCetteAnnee($annee->id))

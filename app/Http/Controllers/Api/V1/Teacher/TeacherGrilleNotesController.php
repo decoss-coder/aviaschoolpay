@@ -232,10 +232,12 @@ class TeacherGrilleNotesController extends Controller
         $etabId = $this->etablissementId($request);
         $annee  = $this->anneeCourante($etabId);
 
+        // Matières affectées au prof (parents uniquement — les sous-disciplines
+        // sont gérées côté UI via sous_discipline_id)
         $matieres = Affectation::where('enseignant_id', $ens->id)
             ->where('classe_id', $classe->id)
             ->where('active', true)
-            ->with('matiere:id,nom,code')
+            ->with('matiere:id,nom,code,parent_matiere_id')
             ->get()
             ->pluck('matiere')
             ->filter()
@@ -254,18 +256,53 @@ class TeacherGrilleNotesController extends Controller
 
         abort_unless($matieres->contains('id', $matiereId), 422);
 
+        // ── Sous-disciplines (premier cycle : Français → CF/OG/EO) ─────────────
+        $estPremierCycle = $this->estPremierCycle($classe);
+        $matiere = Matiere::with(['sousDisciplines' => fn ($q) => $q->orderBy('ordre')->orderBy('code')])
+            ->findOrFail($matiereId);
+        $sousDisciplines = $estPremierCycle ? ($matiere->sousDisciplines ?? collect()) : collect();
+        $hasSous = $sousDisciplines->isNotEmpty();
+
+        // Sous-discipline active : utilisée pour lire/écrire les moyennes.
+        // - Si le client en demande une → on l'utilise
+        // - Sinon (matière a des SD mais aucun id reçu) → on saute la SD active
+        //   et on renvoie les rows vides : le client doit choisir une SD.
+        $sousDisciplineId = null;
+        $activeMatiereId  = $matiereId;
+        if ($hasSous) {
+            $reqSd = $request->input('sous_discipline_id');
+            if ($reqSd !== null && $reqSd !== '') {
+                $reqSd = (int) $reqSd;
+                if (! $sousDisciplines->contains('id', $reqSd)) {
+                    $reqSd = $sousDisciplines->first()->id;
+                }
+                $sousDisciplineId = $reqSd;
+                $activeMatiereId  = $reqSd;
+            } else {
+                $sousDisciplineId = $sousDisciplines->first()->id;
+                $activeMatiereId  = $sousDisciplineId;
+            }
+        }
+
         $eleves = Eleve::where('classe_id', $classe->id)
             ->where('actif', true)
             ->orderBy('nom')->orderBy('prenom')
             ->get(['id', 'nom', 'prenom', 'matricule_interne', 'matricule_desps']);
 
-        $moyExistantes = MoyenneMatiere::where('matiere_id', $matiereId)
+        // Moyennes existantes pour la matière (ou sous-discipline) active
+        $moyExistantes = MoyenneMatiere::where('matiere_id', $activeMatiereId)
             ->where('trimestre_id', $trimestreId)
             ->whereIn('eleve_id', $eleves->pluck('id'))
             ->get()
             ->keyBy('eleve_id');
 
-        $rows = $eleves->map(function ($e) use ($moyExistantes) {
+        // Si on est en mode sous-discipline, calculer aussi la moyenne agrégée
+        // de la matière parente (CF*3 + OG*1 + EO*1) / somme(poids) pour affichage.
+        $agregParent = $hasSous
+            ? $this->agregerMoyennesParent($matiere, $sousDisciplines, $trimestreId, $eleves->pluck('id'))
+            : collect();
+
+        $rows = $eleves->map(function ($e) use ($moyExistantes, $agregParent, $hasSous) {
             $m = $moyExistantes->get($e->id);
             return [
                 'eleve_id'  => $e->id,
@@ -281,17 +318,73 @@ class TeacherGrilleNotesController extends Controller
                 'rang'         => $m?->rang_classe,
                 'appreciation' => $m?->appreciation,
                 'publie'       => (bool) ($m?->publie ?? false),
+                'moyenne_parent' => $hasSous ? $agregParent->get($e->id) : null,
             ];
         });
 
+        // État publication par sous-discipline (info UI)
+        $sdPubliees = $hasSous
+            ? MoyenneMatiere::where('trimestre_id', $trimestreId)
+                ->whereIn('matiere_id', $sousDisciplines->pluck('id'))
+                ->where('publie', true)
+                ->pluck('matiere_id')
+                ->unique()
+                ->values()
+                ->all()
+            : [];
+
         return ApiEnvelope::success([
-            'classe'       => $classe->only(['id', 'nom']),
-            'matieres'     => $matieres,
-            'trimestres'   => $trimestres,
-            'matiere_id'   => $matiereId,
-            'trimestre_id' => $trimestreId,
-            'rows'         => $rows,
+            'classe'             => $classe->only(['id', 'nom']),
+            'matieres'           => $matieres,
+            'trimestres'         => $trimestres,
+            'matiere_id'         => $matiereId,
+            'trimestre_id'       => $trimestreId,
+            'has_sous_disciplines' => $hasSous,
+            'sous_discipline_id' => $sousDisciplineId,
+            'sous_disciplines'   => $sousDisciplines->map(fn ($sd) => [
+                'id'     => $sd->id,
+                'code'   => $sd->code,
+                'nom'    => $sd->nom,
+                'poids'  => (float) ($sd->poids_dans_parent ?? 1),
+                'publie' => in_array($sd->id, $sdPubliees, true),
+            ])->values(),
+            'rows'               => $rows,
         ], 'Moyennes par matière.');
+    }
+
+    /** True si la classe est rattachée à un niveau de premier cycle (6e→3e). */
+    private function estPremierCycle(Classe $classe): bool
+    {
+        $classe->loadMissing('niveau:id,cycle');
+        $cycle = strtolower($classe->niveau?->cycle ?? '');
+        return in_array($cycle, ['premier_cycle', 'premier', '1er_cycle', 'cycle_1'], true);
+    }
+
+    /**
+     * Agrège la moyenne parente (Français) à partir des moyennes de
+     * sous-disciplines pondérées par poids_dans_parent.
+     * Retourne une map eleve_id → moyenne (float|null).
+     */
+    private function agregerMoyennesParent(Matiere $parent, $sousDisciplines, int $trimestreId, $eleveIds)
+    {
+        $rows = MoyenneMatiere::whereIn('matiere_id', $sousDisciplines->pluck('id'))
+            ->where('trimestre_id', $trimestreId)
+            ->whereIn('eleve_id', $eleveIds)
+            ->get(['eleve_id', 'matiere_id', 'moyenne']);
+
+        $poids = $sousDisciplines->pluck('poids_dans_parent', 'id')->map(fn ($p) => (float) ($p ?: 1));
+
+        return $rows->groupBy('eleve_id')->map(function ($items) use ($poids) {
+            $somme = 0.0;
+            $sommePoids = 0.0;
+            foreach ($items as $r) {
+                if ($r->moyenne === null) continue;
+                $p = (float) ($poids[$r->matiere_id] ?? 1);
+                $somme += (float) $r->moyenne * $p;
+                $sommePoids += $p;
+            }
+            return $sommePoids > 0 ? round($somme / $sommePoids, 2) : null;
+        });
     }
 
     public function saveMoyennes(Request $request, Classe $classe): JsonResponse
@@ -299,14 +392,29 @@ class TeacherGrilleNotesController extends Controller
         $this->assertClasseAssignable($request, $classe);
 
         $data = $request->validate([
-            'matiere_id'         => 'required|exists:matieres,id',
-            'trimestre_id'       => 'required|exists:trimestres,id',
-            'moyennes'           => 'required|array|min:1',
-            'moyennes.*.eleve_id' => 'required|exists:eleves,id',
-            'moyennes.*.moyenne' => 'nullable|numeric|min:0|max:20',
+            'matiere_id'              => 'required|exists:matieres,id',
+            'sous_discipline_id'      => 'nullable|exists:matieres,id',
+            'trimestre_id'            => 'required|exists:trimestres,id',
+            'moyennes'                => 'required|array|min:1',
+            'moyennes.*.eleve_id'     => 'required|exists:eleves,id',
+            'moyennes.*.moyenne'      => 'nullable|numeric|min:0|max:20',
             'moyennes.*.appreciation' => 'nullable|string|max:200',
         ]);
 
+        // Si une sous-discipline est ciblée, on valide qu'elle appartient bien
+        // à la matière parente et on stocke contre son id (matiere_id de la SD).
+        $targetMatiereId = (int) $data['matiere_id'];
+        if (! empty($data['sous_discipline_id'])) {
+            $sd = Matiere::find($data['sous_discipline_id']);
+            abort_unless(
+                $sd && (int) $sd->parent_matiere_id === (int) $data['matiere_id'],
+                422,
+                'Sous-discipline invalide pour cette matière.'
+            );
+            $targetMatiereId = (int) $sd->id;
+        }
+
+        // Autorise via la matière parente (les sous-disciplines n'ont pas d'affectation)
         $this->authorizeMatierePourClasse($request, $classe->id, (int) $data['matiere_id']);
 
         // Vérifier que tous les élèves appartiennent à la classe
@@ -324,7 +432,7 @@ class TeacherGrilleNotesController extends Controller
             MoyenneMatiere::updateOrCreate(
                 [
                     'eleve_id'     => $m['eleve_id'],
-                    'matiere_id'   => $data['matiere_id'],
+                    'matiere_id'   => $targetMatiereId,
                     'trimestre_id' => $data['trimestre_id'],
                 ],
                 [
