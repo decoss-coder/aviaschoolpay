@@ -136,25 +136,31 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
                 ]
             );
 
+            $payload = [
+                'user_id' => $user->id,
+                'etablissement_id' => $etab->id,
+                'matricule_mena' => $matricule,
+                'nom' => $t['nom'],
+                'prenom' => $t['prenom'],
+                'sexe' => $t['sexe'],
+                'telephone' => $telephone,
+                'email' => $email,
+                'specialite' => implode(' / ', $t['disciplines']),
+                'statut' => $t['statut'],
+                'taux_horaire' => $t['statut'] === 'vacataire' ? 2500 : 0,
+                'salaire_base' => $t['statut'] === 'vacataire' ? 0 : 150000,
+                'heures_contractuelles_mois' => 72,
+                'actif' => true,
+            ];
+
+            if ($t['statut'] === 'vacataire') {
+                $payload['salaire_base'] = 0;
+                $payload['taux_horaire'] = 2500;
+            }
+
             $enseignant = Enseignant::updateOrCreate(
                 ['etablissement_id' => $etab->id, 'matricule_mena' => $matricule],
-                [
-                    'user_id' => $user->id,
-                    'etablissement_id' => $etab->id,
-                    'matricule_mena' => $matricule,
-                    'nom' => $t['nom'],
-                    'prenom' => $t['prenom'],
-                    'sexe' => $t['sexe'],
-                    'telephone' => $telephone,
-                    'email' => $email,
-                    'specialite' => implode(' / ', $t['disciplines']),
-                    'statut' => $t['statut'],
-                    'type_remuneration' => $t['statut'] === 'vacataire' ? 'horaire' : 'mensuel',
-                    'taux_horaire' => $t['statut'] === 'vacataire' ? 2500 : 0,
-                    'salaire_base' => $t['statut'] === 'vacataire' ? 0 : 150000,
-                    'heures_contractuelles_mois' => 72,
-                    'actif' => true,
-                ]
+                $payload
             );
 
             foreach ($t['disciplines'] as $code) {
