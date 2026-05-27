@@ -16,7 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
             __DIR__.'/../routes/eleve-statut-required.php',
         ],
         api: __DIR__.'/../routes/api_v1.php',
-        commands: __DIR__.'/../routes/console.php',
+        commands: [
+            __DIR__.'/../routes/console.php',
+            __DIR__.'/../routes/console-real-test.php',
+        ],
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
