@@ -13,6 +13,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -22,10 +23,7 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
     $etabId = $this->option('etablissement-id') ? (int) $this->option('etablissement-id') : null;
     $anneeId = $this->option('annee-id') ? (int) $this->option('annee-id') : null;
 
-    $etab = $etabId
-        ? Etablissement::find($etabId)
-        : Etablissement::query()->orderBy('id')->first();
-
+    $etab = $etabId ? Etablissement::find($etabId) : Etablissement::query()->orderBy('id')->first();
     if (! $etab) {
         $this->error('Aucun établissement trouvé.');
         return self::FAILURE;
@@ -59,7 +57,7 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
 
         $niveauByCode = [];
         foreach ($levels as $level) {
-            $niveau = Niveau::updateOrCreate(
+            $niveauByCode[$level['code']] = Niveau::updateOrCreate(
                 ['etablissement_id' => $etab->id, 'code' => $level['code']],
                 $level + [
                     'etablissement_id' => $etab->id,
@@ -69,7 +67,6 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
                     'actif' => true,
                 ]
             );
-            $niveauByCode[$level['code']] = $niveau;
         }
 
         $matieresData = [
@@ -86,8 +83,8 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
         ];
 
         $matByCode = [];
-        foreach ($matieresData as $m) {
-            $matiere = Matiere::updateOrCreate(
+        foreach ($matieresData as $index => $m) {
+            $matByCode[$m['code']] = Matiere::updateOrCreate(
                 ['etablissement_id' => $etab->id, 'code' => $m['code']],
                 [
                     'etablissement_id' => $etab->id,
@@ -95,13 +92,12 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
                     'nom' => $m['nom'],
                     'code' => $m['code'],
                     'coefficient_defaut' => $m['coef'],
-                    'poids_dans_parent' => null,
-                    'ordre' => count($matByCode) + 1,
+                    'poids_dans_parent' => 1,
+                    'ordre' => $index + 1,
                     'groupe' => $m['groupe'],
                     'active' => true,
                 ]
             );
-            $matByCode[$m['code']] = $matiere;
         }
 
         $teacherRows = [
@@ -119,7 +115,11 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
 
         $teachers = [];
         foreach ($teacherRows as $i => $t) {
-            $email = 'enseignant'.str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT).'@aviaschoolpay.local';
+            $num = str_pad((string) ($i + 1), 3, '0', STR_PAD_LEFT);
+            $email = 'enseignant'.$num.'.ecole'.$etab->id.'@aviaschoolpay.local';
+            $matricule = 'MENA-E'.$etab->id.'-DEMO-'.$num;
+            $telephone = '07'.str_pad((string) $etab->id, 2, '0', STR_PAD_LEFT).'000'.$num;
+
             $user = User::updateOrCreate(
                 ['email' => $email],
                 [
@@ -127,8 +127,8 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
                     'active_etablissement_id' => $etab->id,
                     'nom' => $t['nom'],
                     'prenom' => $t['prenom'],
-                    'telephone' => '07000000'.str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT),
-                    'password' => Hash::make('password'),
+                    'telephone' => $telephone,
+                    'password' => Hash::make(Str::random(32)),
                     'role' => 'enseignant',
                     'sexe' => $t['sexe'],
                     'actif' => true,
@@ -137,15 +137,15 @@ Artisan::command('avia:seed-edt-demo {--etablissement-id=} {--annee-id=}', funct
             );
 
             $enseignant = Enseignant::updateOrCreate(
-                ['etablissement_id' => $etab->id, 'matricule_mena' => 'MENA-DEMO-'.str_pad((string) ($i + 1), 3, '0', STR_PAD_LEFT)],
+                ['etablissement_id' => $etab->id, 'matricule_mena' => $matricule],
                 [
                     'user_id' => $user->id,
                     'etablissement_id' => $etab->id,
-                    'matricule_mena' => 'MENA-DEMO-'.str_pad((string) ($i + 1), 3, '0', STR_PAD_LEFT),
+                    'matricule_mena' => $matricule,
                     'nom' => $t['nom'],
                     'prenom' => $t['prenom'],
                     'sexe' => $t['sexe'],
-                    'telephone' => '07000000'.str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT),
+                    'telephone' => $telephone,
                     'email' => $email,
                     'specialite' => implode(' / ', $t['disciplines']),
                     'statut' => $t['statut'],
