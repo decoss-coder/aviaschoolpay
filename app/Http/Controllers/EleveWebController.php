@@ -268,8 +268,12 @@ class EleveWebController extends Controller
                 $q->where('etablissement_id', $etab->id);
                 if ($annee) $q->where('annee_scolaire_id', $annee->id);
             })],
-            'matricule_desps' => ['nullable', 'string', 'max:20', 'regex:/^\d{8}[A-Z]?$/'],
-        ], ['matricule_desps.regex' => 'Le matricule DESPS doit contenir 8 chiffres suivis éventuellement d’une lettre majuscule.']);
+            // Les matricules MENA/DESPS réels peuvent varier selon les imports : 2038044Y, 233052P, 19602121M, etc.
+            // On accepte donc les codes alphanumériques usuels au lieu d'imposer strictement 8 chiffres + lettre.
+            'matricule_desps' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9\-\/]+$/'],
+        ], [
+            'matricule_desps.regex' => 'Le matricule MENA/DESPS doit contenir uniquement des lettres, chiffres, tirets ou slashs, sans espace.',
+        ]);
     }
 
     private function buildEleveData(array $validated, $etab, $annee, ?Eleve $eleve): array
@@ -286,7 +290,7 @@ class EleveWebController extends Controller
             'lieu_naissance' => $validated['lieu_naissance'] ?? null,
             'nationalite' => $validated['nationalite'] ?? null,
             'adresse' => $validated['adresse'] ?? null,
-            'matricule_desps' => filled($validated['matricule_desps'] ?? null) ? strtoupper(trim($validated['matricule_desps'])) : null,
+            'matricule_desps' => filled($validated['matricule_desps'] ?? null) ? strtoupper(preg_replace('/\s+/', '', trim($validated['matricule_desps']))) : null,
             'classe_id' => $validated['classe_id'] ?? null,
             'contact_urgence_tel' => $contactTel,
             'contact_urgence_nom' => trim((string) ($validated['parent_nom'] ?? '')) ?: null,
