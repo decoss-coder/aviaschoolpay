@@ -115,11 +115,15 @@ class ReferentielService
 
     private function matiereAutoriseePourClasse(Classe $classe, ?string $code, ?string $nom): bool
     {
-        if (! $this->estLv2($code, $nom)) {
-            return true;
+        if ($this->estLv2($code, $nom)) {
+            return $this->classeAccepteLv2($classe);
         }
 
-        return $this->classeAccepteLv2($classe);
+        if ($this->estPhilosophie($code, $nom)) {
+            return $this->classeEstSecondCycle($classe);
+        }
+
+        return true;
     }
 
     private function estLv2(?string $code, ?string $nom): bool
@@ -133,23 +137,47 @@ class ReferentielService
             || str_contains($text, 'all');
     }
 
+    private function estPhilosophie(?string $code, ?string $nom): bool
+    {
+        $text = $this->normaliserTexte(trim((string) $code.' '.(string) $nom));
+
+        return str_contains($text, 'philo');
+    }
+
     private function classeAccepteLv2(Classe $classe): bool
+    {
+        if ($this->classeEstSecondCycle($classe)) {
+            return true;
+        }
+
+        return preg_match('/(^|\s)(4|3)\s*(e|eme)?(\s|$)/', $this->classeTexte($classe)) === 1;
+    }
+
+    private function classeEstSecondCycle(Classe $classe): bool
+    {
+        $txt = $this->classeTexte($classe);
+
+        return str_contains($txt, 'second_cycle')
+            || str_contains($txt, 'second cycle')
+            || str_contains($txt, 'seconde')
+            || str_contains($txt, '2nde')
+            || str_contains($txt, '1ere')
+            || str_contains($txt, 'premiere')
+            || str_contains($txt, 'tle')
+            || str_contains($txt, 'terminale');
+    }
+
+    private function classeTexte(Classe $classe): string
     {
         $classe->loadMissing('niveau');
         $niveau = $classe->niveau;
 
-        $txt = $this->normaliserTexte(trim(
+        return $this->normaliserTexte(trim(
             (string) ($classe->nom ?? '').' '.
             (string) ($niveau?->code ?? '').' '.
             (string) ($niveau?->libelle ?? '').' '.
             (string) ($niveau?->cycle ?? '')
         ));
-
-        if (str_contains($txt, 'second_cycle') || str_contains($txt, 'second cycle') || str_contains($txt, 'seconde') || str_contains($txt, '2nde') || str_contains($txt, '1ere') || str_contains($txt, 'premiere') || str_contains($txt, 'tle') || str_contains($txt, 'terminale')) {
-            return true;
-        }
-
-        return preg_match('/(^|\s)(4|3)\s*(e|eme)?(\s|$)/', $txt) === 1;
     }
 
     private function normaliserTexte(string $value): string
