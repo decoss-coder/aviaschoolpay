@@ -7,6 +7,7 @@ use App\Models\Matiere;
 use App\Models\Niveau;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -134,10 +135,30 @@ Artisan::command('avia:reset-real-test {--etablissement-id=} {--all-schools} {--
             $teachersByCode = [];
             foreach ($teacherRows as $i => [$nom,$prenom,$sexe,$statut,$disciplines]) {
                 $mat = 'REAL-E'.$etab->id.'-'.str_pad((string)($i+1),3,'0',STR_PAD_LEFT);
+                $email = 'prof.real'.str_pad((string)($i+1),3,'0',STR_PAD_LEFT).'.ecole'.$etab->id.'@aviaschoolpay.local';
+                $telephone = '0709'.str_pad((string)$etab->id,2,'0',STR_PAD_LEFT).str_pad((string)($i+1),4,'0',STR_PAD_LEFT);
+
+                $userId = $upsert('users', ['email' => $email], [
+                    'etablissement_id' => $etab->id,
+                    'active_etablissement_id' => $etab->id,
+                    'nom' => $nom,
+                    'prenom' => $prenom,
+                    'telephone' => $telephone,
+                    'email' => $email,
+                    'password' => Hash::make(Str::random(32)),
+                    'role' => 'enseignant',
+                    'sexe' => $sexe,
+                    'actif' => true,
+                    'premiere_connexion' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
                 $id = $upsert('enseignants', ['etablissement_id' => $etab->id, 'matricule_mena' => $mat], [
+                    'user_id' => $userId,
                     'etablissement_id' => $etab->id, 'matricule_mena' => $mat, 'nom' => $nom, 'prenom' => $prenom, 'sexe' => $sexe,
-                    'telephone' => '0709'.str_pad((string)$etab->id,2,'0',STR_PAD_LEFT).str_pad((string)($i+1),4,'0',STR_PAD_LEFT),
-                    'email' => 'prof.real'.str_pad((string)($i+1),3,'0',STR_PAD_LEFT).'.ecole'.$etab->id.'@aviaschoolpay.local',
+                    'telephone' => $telephone,
+                    'email' => $email,
                     'specialite' => implode(' / ', $disciplines), 'statut' => $statut, 'salaire_base' => $statut === 'vacataire' ? 0 : 150000, 'taux_horaire' => $statut === 'vacataire' ? 2500 : 0,
                     'heures_contractuelles_mois' => 72, 'actif' => true, 'created_at' => now(), 'updated_at' => now(),
                 ]);
