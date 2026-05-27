@@ -395,11 +395,14 @@ class TeacherGrilleNotesController extends Controller
             'matiere_id'              => 'required|exists:matieres,id',
             'sous_discipline_id'      => 'nullable|exists:matieres,id',
             'trimestre_id'            => 'required|exists:trimestres,id',
+            'publier'                 => 'sometimes|boolean',
             'moyennes'                => 'required|array|min:1',
             'moyennes.*.eleve_id'     => 'required|exists:eleves,id',
             'moyennes.*.moyenne'      => 'nullable|numeric|min:0|max:20',
             'moyennes.*.appreciation' => 'nullable|string|max:200',
         ]);
+
+        $publier = (bool) ($data['publier'] ?? false);
 
         // Si une sous-discipline est ciblée, on valide qu'elle appartient bien
         // à la matière parente et on stocke contre son id (matiere_id de la SD).
@@ -429,27 +432,82 @@ class TeacherGrilleNotesController extends Controller
 
         $ens = $this->enseignant($request);
         foreach ($data['moyennes'] as $m) {
+            $payload = [
+                'classe_id'      => $classe->id,
+                'enseignant_id'  => $ens->id,
+                'moyenne'        => $m['moyenne'] ?? null,
+                'appreciation'   => $m['appreciation'] ?? null,
+                'saisie_par'     => $request->user()->id,
+                'date_saisie'    => now(),
+                'saisie_directe' => true,
+            ];
+            if ($publier) {
+                $payload['publie'] = true;
+                $payload['date_publication'] = now();
+            }
             MoyenneMatiere::updateOrCreate(
                 [
                     'eleve_id'     => $m['eleve_id'],
                     'matiere_id'   => $targetMatiereId,
                     'trimestre_id' => $data['trimestre_id'],
                 ],
-                [
-                    'classe_id'      => $classe->id,
-                    'enseignant_id'  => $ens->id,
-                    'moyenne'        => $m['moyenne'] ?? null,
-                    'appreciation'   => $m['appreciation'] ?? null,
-                    'saisie_par'     => $request->user()->id,
-                    'date_saisie'    => now(),
-                    'saisie_directe' => true,
-                ]
+                $payload
             );
         }
 
         return ApiEnvelope::success(
-            ['count' => count($data['moyennes'])],
-            count($data['moyennes']) . ' moyenne(s) enregistrée(s).'
+            [
+                'count'   => count($data['moyennes']),
+                'publie'  => $publier,
+            ],
+            $publier
+                ? count($data['moyennes']) . ' moyenne(s) publiée(s) — visibles par la direction.'
+                : count($data['moyennes']) . ' moyenne(s) enregistrée(s) en brouillon.'
+        );
+    }
+
+    /**
+     * Publier (ou dépublier) toutes les moyennes existantes pour une matière /
+     * trimestre / (sous-discipline). Ne touche pas aux valeurs.
+     */
+    public function publishMoyennes(Request $request, Classe $classe): JsonResponse
+    {
+        $this->assertClasseAssignable($request, $classe);
+
+        $data = $request->validate([
+            'matiere_id'         => 'required|exists:matieres,id',
+            'sous_discipline_id' => 'nullable|exists:matieres,id',
+            'trimestre_id'       => 'required|exists:trimestres,id',
+            'publier'            => 'required|boolean',
+        ]);
+
+        $targetMatiereId = (int) $data['matiere_id'];
+        if (! empty($data['sous_discipline_id'])) {
+            $sd = Matiere::find($data['sous_discipline_id']);
+            abort_unless(
+                $sd && (int) $sd->parent_matiere_id === (int) $data['matiere_id'],
+                422,
+                'Sous-discipline invalide pour cette matière.'
+            );
+            $targetMatiereId = (int) $sd->id;
+        }
+
+        $this->authorizeMatierePourClasse($request, $classe->id, (int) $data['matiere_id']);
+
+        $publier = (bool) $data['publier'];
+        $count = MoyenneMatiere::where('classe_id', $classe->id)
+            ->where('matiere_id', $targetMatiereId)
+            ->where('trimestre_id', $data['trimestre_id'])
+            ->update([
+                'publie'           => $publier,
+                'date_publication' => $publier ? now() : null,
+            ]);
+
+        return ApiEnvelope::success(
+            ['count' => $count, 'publie' => $publier],
+            $publier
+                ? "{$count} moyenne(s) publiée(s) — visibles par la direction."
+                : "{$count} moyenne(s) dépubliée(s)."
         );
     }
 

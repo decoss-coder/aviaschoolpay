@@ -85,6 +85,7 @@ Route::prefix('v1')->group(function () {
             // Moyennes par matière (saisie directe)
             Route::get('classes/{classe}/moyennes', [TeacherGrilleNotesController::class, 'moyennes']);
             Route::post('classes/{classe}/moyennes', [TeacherGrilleNotesController::class, 'saveMoyennes']);
+            Route::post('classes/{classe}/moyennes/publier', [TeacherGrilleNotesController::class, 'publishMoyennes']);
             Route::get('classes/{classe}/moyennes/pdf', [TeacherGrilleNotesController::class, 'moyennesPdf']);
 
             // OCR import moyennes (photo / image / PDF de fiche)
