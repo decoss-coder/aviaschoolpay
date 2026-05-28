@@ -725,6 +725,8 @@ Route::middleware([
     Route::get('/affectations', [AffectationAdminController::class, 'index'])->name('affectations.index');
     Route::get('/affectations/create', [AffectationAdminController::class, 'create'])->name('affectations.create');
     Route::post('/affectations', [AffectationAdminController::class, 'store'])->name('affectations.store');
+    Route::post('/affectations/groupes', [AffectationAdminController::class, 'bulkStore'])->name('affectations.bulk-store');
+    Route::delete('/affectations/vider', [AffectationAdminController::class, 'clear'])->name('affectations.clear');
     Route::get('/affectations/{affectation}/edit', [AffectationAdminController::class, 'edit'])->name('affectations.edit');
     Route::put('/affectations/{affectation}', [AffectationAdminController::class, 'update'])->name('affectations.update');
     Route::delete('/affectations/{affectation}', [AffectationAdminController::class, 'destroy'])->name('affectations.destroy');
