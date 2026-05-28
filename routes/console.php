@@ -11,3 +11,8 @@ $realTestCommands = __DIR__.'/console-real-test.php';
 if (file_exists($realTestCommands)) {
     require_once $realTestCommands;
 }
+
+$edtAiPrepareCommands = __DIR__.'/console-edt-ai-prepare.php';
+if (file_exists($edtAiPrepareCommands)) {
+    require_once $edtAiPrepareCommands;
+}
