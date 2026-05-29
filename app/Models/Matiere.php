@@ -16,6 +16,7 @@ class Matiere extends Model
         'nom',
         'code',
         'coefficient_defaut',
+        'heures_hebdo_defaut',
         'poids_dans_parent',
         'ordre',
         'groupe',
@@ -24,6 +25,7 @@ class Matiere extends Model
 
     protected $casts = [
         'coefficient_defaut' => 'decimal:2',
+        'heures_hebdo_defaut' => 'decimal:2',
         'poids_dans_parent'  => 'decimal:2',
         'active' => 'boolean',
     ];
