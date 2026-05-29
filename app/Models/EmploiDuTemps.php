@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\EmploiDuTemps\EmploiDuTempsConflictGuard;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
@@ -57,6 +58,37 @@ class EmploiDuTemps extends Model
         'ia_score'         => 'decimal:2',
         'last_adjusted_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $emploi) {
+            if (! $emploi->actif) {
+                return;
+            }
+
+            $watched = [
+                'etablissement_id',
+                'annee_scolaire_id',
+                'classe_id',
+                'enseignant_id',
+                'salle_id',
+                'jour',
+                'creneau_id',
+                'valide_du',
+                'valide_au',
+                'actif',
+            ];
+
+            if ($emploi->exists && ! $emploi->isDirty($watched)) {
+                return;
+            }
+
+            app(EmploiDuTempsConflictGuard::class)->assertNoConflicts(
+                $emploi->attributesToArray(),
+                $emploi->exists ? $emploi->id : null
+            );
+        });
+    }
 
     // -------------------------------------------------------
     // Helpers statiques
