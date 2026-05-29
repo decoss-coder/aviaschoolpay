@@ -17,6 +17,8 @@ class Matiere extends Model
         'code',
         'coefficient_defaut',
         'heures_hebdo_defaut',
+        'heures_hebdo_premier_cycle',
+        'heures_hebdo_second_cycle',
         'poids_dans_parent',
         'ordre',
         'groupe',
@@ -26,6 +28,8 @@ class Matiere extends Model
     protected $casts = [
         'coefficient_defaut' => 'decimal:2',
         'heures_hebdo_defaut' => 'decimal:2',
+        'heures_hebdo_premier_cycle' => 'decimal:2',
+        'heures_hebdo_second_cycle' => 'decimal:2',
         'poids_dans_parent'  => 'decimal:2',
         'active' => 'boolean',
     ];
