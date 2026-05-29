@@ -113,6 +113,13 @@ class EmploiDuTempsAIAssistantController extends Controller
             $validated['scope_classes'] = $allowedClassIds;
         }
 
+        // Génération IA = combinaisons N×M×K (affectations × créneaux × salles).
+        // Avec 320 affectations / 24 classes / 23 créneaux, l'algo peut dépasser
+        // la limite PHP par défaut (30s). On la lève le temps de la requête,
+        // et on augmente la mémoire de travail pour les états intermédiaires.
+        @set_time_limit(0);
+        @ini_set('memory_limit', '1024M');
+
         try {
             $result = $this->generationService->generateForCreateScreen(
                 user: $user,

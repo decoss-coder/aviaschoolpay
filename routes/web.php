@@ -118,9 +118,9 @@ Route::middleware(['auth', 'password.changed'])->group(function () {
     Route::resource('eleves', 'App\Http\Controllers\EleveWebController')
         ->parameters(['eleves' => 'eleve'])
         ->where(['eleve' => '[0-9]+']);
-    Route::delete('/eleves/{id}', [App\Http\Controllers\EleveWebController::class, 'destroy'])
-        ->where('id', '[0-9]+')
-        ->name('eleves.destroy');
+    // NB: la route DELETE eleves/{eleve} est déjà fournie par Route::resource ci-dessus
+    // (nom 'eleves.destroy'). Ne pas redéclarer, sinon route:cache échoue
+    // (LogicException "Another route has already been assigned name [eleves.destroy]").
     Route::get('eleves-export', 'App\Http\Controllers\EleveWebController@export')->name('eleves.export');
 
     /*
