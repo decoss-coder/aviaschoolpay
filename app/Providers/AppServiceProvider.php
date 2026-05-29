@@ -8,6 +8,8 @@ use App\Models\Paiement;
 use App\Observers\DepenseObserver;
 use App\Observers\PaiementObserver;
 use App\Policies\ElevePolicy;
+use App\Services\EmploiDuTempsIAService;
+use App\Services\EmploiDuTempsSafeIAService;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -19,7 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(EmploiDuTempsIAService::class, EmploiDuTempsSafeIAService::class);
     }
 
     /**
