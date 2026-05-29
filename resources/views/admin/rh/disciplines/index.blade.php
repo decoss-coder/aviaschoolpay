@@ -10,6 +10,16 @@
         'Sportive'     => '🏃 Sportive (EPS…)',
         'Autres'       => '📋 Autres (ECM, Conduite…)',
     ];
+
+    $formatHeuresHebdo = static function ($value): string {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        $formatted = rtrim(rtrim(number_format((float) $value, 2, ',', ' '), '0'), ',');
+
+        return $formatted.' h';
+    };
 @endphp
 
 @section('content')
@@ -35,7 +45,7 @@
         <div>
             <h1 class="font-display text-2xl font-extrabold text-gray-900">Disciplines (matières)</h1>
             <p class="text-sm text-gray-500 mt-1">
-                Définissez les disciplines enseignées (FR, MATH, ANG, HG, SVT, PC…). Chaque discipline a un <b>coefficient par défaut</b> utilisé dans le calcul des moyennes générales et peut avoir des <b>sous-disciplines</b> (ex : Français → CF/OG/EO).
+                Définissez les disciplines enseignées (FR, MATH, ANG, HG, SVT, PC…). Chaque discipline a un <b>coefficient par défaut</b>, un <b>volume horaire hebdomadaire de référence</b> et peut avoir des <b>sous-disciplines</b> (ex : Français → CF/OG/EO).
             </p>
         </div>
         <div class="flex gap-2">
@@ -76,7 +86,7 @@
          class="bg-white rounded-2xl shadow-card border-2 border-brand-200 p-5">
         <h2 class="font-bold text-gray-800 text-sm uppercase tracking-wide mb-3">+ Nouvelle discipline</h2>
         <form method="POST" action="{{ route('admin.rh.disciplines.store') }}"
-              class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+              class="grid grid-cols-1 md:grid-cols-7 gap-3 items-end">
             @csrf
             <div>
                 <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Code *</label>
@@ -89,8 +99,13 @@
                        class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
             </div>
             <div>
-                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Coef défaut *</label>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Coef *</label>
                 <input type="number" name="coefficient_defaut" value="1" step="0.5" min="0.5" max="20" required
+                       class="w-full text-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-bold">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Heures / semaine</label>
+                <input type="number" name="heures_hebdo_defaut" step="0.5" min="0" max="60" placeholder="Ex : 4"
                        class="w-full text-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-bold">
             </div>
             <div>
@@ -108,14 +123,14 @@
                 <input type="number" name="ordre" value="0" min="0"
                        class="w-full text-center rounded-lg border border-gray-200 px-3 py-2 text-sm">
             </div>
-            <div class="md:col-span-6 flex justify-end">
+            <div class="md:col-span-7 flex justify-end">
                 <button class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-6 py-2 rounded-xl">
                     💾 Enregistrer
                 </button>
             </div>
         </form>
         <div class="mt-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
-            💡 Le <b>groupe</b> détermine le <b>BILAN</b> sur le bulletin officiel (BILAN LET, BILAN SC...). Pour un format conforme au bulletin de Côte d'Ivoire, classez vos matières en <b>Littéraire</b> / <b>Scientifique</b> / <b>Autres</b>.
+            💡 Le <b>groupe</b> détermine le <b>BILAN</b> sur le bulletin officiel (BILAN LET, BILAN SC...). Les <b>heures hebdomadaires</b> servent de volume horaire de référence pour les affectations et l'emploi du temps.
         </div>
     </div>
 
@@ -139,8 +154,9 @@
                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Nom</th>
                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Groupe</th>
                         <th class="px-4 py-2 text-center text-xs font-bold text-gray-500 uppercase">Coef</th>
-                        <th class="px-4 py-2 text-center text-xs font-bold text-gray-500 uppercase">Sous-disciplines</th>
-                        <th class="px-4 py-2 text-center text-xs font-bold text-gray-500 uppercase">Affectations</th>
+                        <th class="px-4 py-2 text-center text-xs font-bold text-gray-500 uppercase">H/sem.</th>
+                        <th class="px-4 py-2 text-center text-xs font-bold text-gray-500 uppercase">Sous-disc.</th>
+                        <th class="px-4 py-2 text-center text-xs font-bold text-gray-500 uppercase">Affect.</th>
                         <th class="px-4 py-2 text-center text-xs font-bold text-gray-500 uppercase">Statut</th>
                         <th class="px-4 py-2 text-right text-xs font-bold text-gray-500 uppercase">Actions</th>
                     </tr>
@@ -171,6 +187,7 @@
                             @endif
                         </td>
                         <td class="px-4 py-3 text-center font-bold">×{{ rtrim(rtrim(number_format($matiere->coefficient_defaut, 2, '.', ''), '0'), '.') }}</td>
+                        <td class="px-4 py-3 text-center font-bold text-gray-700">{{ $formatHeuresHebdo($matiere->heures_hebdo_defaut) }}</td>
                         <td class="px-4 py-3 text-center">
                             @if($matiere->sous_count > 0)
                                 <a href="{{ route('admin.rh.sous-disciplines.index') }}"
@@ -213,9 +230,9 @@
                     </tr>
                     {{-- Form édition --}}
                     <tr x-show="editingId === {{ $matiere->id }}" x-cloak class="bg-blue-50/40">
-                        <td colspan="8" class="px-4 py-4">
+                        <td colspan="9" class="px-4 py-4">
                             <form method="POST" action="{{ route('admin.rh.disciplines.update', $matiere) }}"
-                                  class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+                                  class="grid grid-cols-1 md:grid-cols-7 gap-3 items-end">
                                 @csrf @method('PATCH')
                                 <div>
                                     <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Code</label>
@@ -230,6 +247,11 @@
                                 <div>
                                     <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Coef</label>
                                     <input type="number" name="coefficient_defaut" value="{{ $matiere->coefficient_defaut }}" step="0.5" min="0.5" max="20" required
+                                           class="w-full text-center rounded-lg border border-gray-200 px-2 py-1.5 text-sm font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">H/sem.</label>
+                                    <input type="number" name="heures_hebdo_defaut" value="{{ $matiere->heures_hebdo_defaut }}" step="0.5" min="0" max="60" placeholder="Ex : 4"
                                            class="w-full text-center rounded-lg border border-gray-200 px-2 py-1.5 text-sm font-bold">
                                 </div>
                                 <div>
@@ -268,6 +290,7 @@
         <p class="font-bold mb-1">💡 Comment ça marche</p>
         <ol class="list-decimal pl-5 space-y-0.5">
             <li>Créez les disciplines de votre établissement (Français, Math, Anglais...) avec un <b>coefficient par défaut</b>.</li>
+            <li>Les heures hebdomadaires indiquent le volume horaire de référence de la discipline. Elles pourront ensuite servir aux affectations et à l'emploi du temps.</li>
             <li>Pour les matières composites (Français au 1ᵉʳ cycle), ajoutez des <a href="{{ route('admin.rh.sous-disciplines.index') }}" class="underline font-bold">sous-disciplines</a> (CF, OG, EO).</li>
             <li>Affectez ensuite chaque discipline à un enseignant et à une classe dans <a href="{{ route('admin.rh.affectations.index') }}" class="underline font-bold">Affectations</a>.</li>
             <li>Les enseignants saisissent les notes/moyennes ; le système calcule la moyenne générale en pondérant par <b>coef matière × coef trimestre</b>.</li>
