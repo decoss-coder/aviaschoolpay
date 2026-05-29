@@ -28,7 +28,7 @@
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <p class="text-xs uppercase tracking-wider font-bold text-red-600">Conflit {{ ucfirst($conflit['type']) }}</p>
-                    <p class="text-sm text-gray-500 mt-1">{{ $conflit['key'] }}</p>
+                    <p class="text-sm text-gray-500 mt-1">{{ $conflit['label'] ?? $conflit['key'] }}</p>
                 </div>
                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold bg-red-100 text-red-700">
                     {{ count($conflit['items']) }} collisions
