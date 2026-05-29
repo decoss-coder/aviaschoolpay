@@ -15,8 +15,12 @@ class EmploiDuTempsRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->input('enseignant_id') === '') {
-            $this->merge(['enseignant_id' => null]);
+        foreach (['enseignant_id', 'salle_id'] as $field) {
+            $value = $this->input($field);
+
+            if ($value === '' || $value === '0' || $value === 0) {
+                $this->merge([$field => null]);
+            }
         }
     }
 
@@ -28,7 +32,7 @@ class EmploiDuTempsRequest extends FormRequest
             'classe_id' => ['required', 'integer'],
             'matiere_id' => ['required', 'integer'],
             'enseignant_id' => ['nullable', 'integer'],
-            'salle_id' => ['required', 'integer'],
+            'salle_id' => ['nullable', 'integer'],
             'creneau_id' => ['required', 'integer'],
             'valide_du' => ['nullable', 'date'],
             'valide_au' => ['nullable', 'date', 'after_or_equal:valide_du'],
