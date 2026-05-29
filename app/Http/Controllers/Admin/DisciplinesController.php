@@ -26,6 +26,17 @@ class DisciplinesController extends Controller
         return (float) str_replace(',', '.', $value);
     }
 
+    private function normalizeCycleHoursInput(Request $request): void
+    {
+        foreach (['heures_hebdo_premier_cycle', 'heures_hebdo_second_cycle'] as $field) {
+            $request->merge([
+                $field => $request->filled($field)
+                    ? str_replace(',', '.', $request->input($field))
+                    : null,
+            ]);
+        }
+    }
+
     public function index(Request $request)
     {
         $etabId = $this->etabId($request);
@@ -48,19 +59,16 @@ class DisciplinesController extends Controller
 
     public function store(Request $request)
     {
-        $request->merge([
-            'heures_hebdo_defaut' => $request->filled('heures_hebdo_defaut')
-                ? str_replace(',', '.', $request->input('heures_hebdo_defaut'))
-                : null,
-        ]);
+        $this->normalizeCycleHoursInput($request);
 
         $data = $request->validate([
-            'code'                 => 'required|string|max:20',
-            'nom'                  => 'required|string|max:100',
-            'coefficient_defaut'   => 'required|numeric|min:0.1|max:20',
-            'heures_hebdo_defaut'  => 'nullable|numeric|min:0|max:60',
-            'groupe'               => 'nullable|string|in:Littéraire,Scientifique,Artistique,Sportive,Autres',
-            'ordre'                => 'nullable|integer|min:0',
+            'code'                       => 'required|string|max:20',
+            'nom'                        => 'required|string|max:100',
+            'coefficient_defaut'         => 'required|numeric|min:0.1|max:20',
+            'heures_hebdo_premier_cycle' => 'nullable|numeric|min:0|max:60',
+            'heures_hebdo_second_cycle'  => 'nullable|numeric|min:0|max:60',
+            'groupe'                     => 'nullable|string|in:Littéraire,Scientifique,Artistique,Sportive,Autres',
+            'ordre'                      => 'nullable|integer|min:0',
         ]);
 
         $etabId = $this->etabId($request);
@@ -71,16 +79,17 @@ class DisciplinesController extends Controller
         }
 
         Matiere::create([
-            'etablissement_id'      => $etabId,
-            'parent_matiere_id'     => null,
-            'code'                  => strtoupper($data['code']),
-            'nom'                   => $data['nom'],
-            'coefficient_defaut'    => $data['coefficient_defaut'],
-            'heures_hebdo_defaut'   => $this->normalizeHeuresHebdo($data['heures_hebdo_defaut'] ?? null),
-            'poids_dans_parent'     => 1,
-            'groupe'                => $data['groupe'] ?? null,
-            'ordre'                 => $data['ordre'] ?? 0,
-            'active'                => true,
+            'etablissement_id'             => $etabId,
+            'parent_matiere_id'            => null,
+            'code'                         => strtoupper($data['code']),
+            'nom'                          => $data['nom'],
+            'coefficient_defaut'           => $data['coefficient_defaut'],
+            'heures_hebdo_premier_cycle'   => $this->normalizeHeuresHebdo($data['heures_hebdo_premier_cycle'] ?? null),
+            'heures_hebdo_second_cycle'    => $this->normalizeHeuresHebdo($data['heures_hebdo_second_cycle'] ?? null),
+            'poids_dans_parent'            => 1,
+            'groupe'                       => $data['groupe'] ?? null,
+            'ordre'                        => $data['ordre'] ?? 0,
+            'active'                       => true,
         ]);
 
         return back()->with('success', "Discipline « {$data['nom']} » créée.");
@@ -91,20 +100,17 @@ class DisciplinesController extends Controller
         abort_unless($matiere->etablissement_id === $this->etabId($request), 404);
         abort_if($matiere->parent_matiere_id, 422, 'Cette matière est une sous-discipline (gérée séparément).');
 
-        $request->merge([
-            'heures_hebdo_defaut' => $request->filled('heures_hebdo_defaut')
-                ? str_replace(',', '.', $request->input('heures_hebdo_defaut'))
-                : null,
-        ]);
+        $this->normalizeCycleHoursInput($request);
 
         $data = $request->validate([
-            'code'                 => 'required|string|max:20',
-            'nom'                  => 'required|string|max:100',
-            'coefficient_defaut'   => 'required|numeric|min:0.1|max:20',
-            'heures_hebdo_defaut'  => 'nullable|numeric|min:0|max:60',
-            'groupe'               => 'nullable|string|in:Littéraire,Scientifique,Artistique,Sportive,Autres',
-            'ordre'                => 'nullable|integer|min:0',
-            'active'               => 'nullable|boolean',
+            'code'                       => 'required|string|max:20',
+            'nom'                        => 'required|string|max:100',
+            'coefficient_defaut'         => 'required|numeric|min:0.1|max:20',
+            'heures_hebdo_premier_cycle' => 'nullable|numeric|min:0|max:60',
+            'heures_hebdo_second_cycle'  => 'nullable|numeric|min:0|max:60',
+            'groupe'                     => 'nullable|string|in:Littéraire,Scientifique,Artistique,Sportive,Autres',
+            'ordre'                      => 'nullable|integer|min:0',
+            'active'                     => 'nullable|boolean',
         ]);
 
         // Unicité du code (sauf elle-même)
@@ -117,13 +123,14 @@ class DisciplinesController extends Controller
         }
 
         $matiere->update([
-            'code'                  => strtoupper($data['code']),
-            'nom'                   => $data['nom'],
-            'coefficient_defaut'    => $data['coefficient_defaut'],
-            'heures_hebdo_defaut'   => $this->normalizeHeuresHebdo($data['heures_hebdo_defaut'] ?? null),
-            'groupe'                => $data['groupe'] ?? null,
-            'ordre'                 => $data['ordre'] ?? 0,
-            'active'                => (bool) ($data['active'] ?? $matiere->active),
+            'code'                         => strtoupper($data['code']),
+            'nom'                          => $data['nom'],
+            'coefficient_defaut'           => $data['coefficient_defaut'],
+            'heures_hebdo_premier_cycle'   => $this->normalizeHeuresHebdo($data['heures_hebdo_premier_cycle'] ?? null),
+            'heures_hebdo_second_cycle'    => $this->normalizeHeuresHebdo($data['heures_hebdo_second_cycle'] ?? null),
+            'groupe'                       => $data['groupe'] ?? null,
+            'ordre'                        => $data['ordre'] ?? 0,
+            'active'                       => (bool) ($data['active'] ?? $matiere->active),
         ]);
 
         return back()->with('success', 'Discipline mise à jour.');
