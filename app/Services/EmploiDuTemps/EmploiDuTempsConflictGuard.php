@@ -4,6 +4,7 @@ namespace App\Services\EmploiDuTemps;
 
 use App\Models\EmploiDuTemps;
 use App\Models\Salle;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -21,6 +22,10 @@ class EmploiDuTempsConflictGuard
 
     public function assertNoConflicts(array $data, ?int $ignoreId = null, bool $lock = false): void
     {
+        if (array_key_exists('actif', $data) && ! (bool) $data['actif']) {
+            return;
+        }
+
         $base = EmploiDuTemps::query()
             ->where('etablissement_id', $data['etablissement_id'])
             ->where('annee_scolaire_id', $data['annee_scolaire_id'])
@@ -31,6 +36,8 @@ class EmploiDuTempsConflictGuard
         if ($ignoreId) {
             $base->whereKeyNot($ignoreId);
         }
+
+        $this->applyDateOverlap($base, $data);
 
         if ($lock) {
             $base->lockForUpdate();
@@ -55,6 +62,20 @@ class EmploiDuTempsConflictGuard
             if ($estExclusive && (clone $base)->where('salle_id', $data['salle_id'])->exists()) {
                 throw ValidationException::withMessages(['salle_id' => 'Cette salle est déjà occupée sur ce créneau.']);
             }
+        }
+    }
+
+    private function applyDateOverlap(Builder $query, array $data): void
+    {
+        $from = $data['valide_du'] ?? null;
+        $to = $data['valide_au'] ?? null;
+
+        if ($from && $to) {
+            $query->where(function ($q) use ($to) {
+                $q->whereNull('valide_du')->orWhere('valide_du', '<=', $to);
+            })->where(function ($q) use ($from) {
+                $q->whereNull('valide_au')->orWhere('valide_au', '>=', $from);
+            });
         }
     }
 }
