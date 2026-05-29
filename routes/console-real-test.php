@@ -176,19 +176,51 @@ Artisan::command('avia:reset-real-test {--etablissement-id=} {--all-schools} {--
                 ]);
             }
 
+            // Pool d'enseignants élargi pour absorber les volumes horaires réels
+            // (un seul prof par matière serait surchargé : 24 classes × 4-5h = 100h/sem)
             $teacherRows = [
+                // FRANCAIS (4)
                 ['Kindo','Mariam','F','titulaire',['FR']],
+                ['Bagaté','Catherine','F','titulaire',['FR']],
+                ['Yao','Sylvie','F','contractuel',['FR']],
+                ['Konan','Beatrice','F','vacataire',['FR']],
+                // HISTOIRE-GEO (3)
                 ['Mian','Armand','M','titulaire',['HG']],
+                ['Kouadio','Sylvain','M','titulaire',['HG']],
+                ['Soro','Adama','M','contractuel',['HG']],
+                // ANGLAIS (3)
                 ['Ndri','Nadia','F','titulaire',['ANG']],
-                ['Foto','Michel','M','vacataire',['ESP','ALL']],
+                ['Koffi','Eric','M','titulaire',['ANG']],
+                ['Touré','Aminata','F','vacataire',['ANG']],
+                // ESPAGNOL (2) - LV2 seulement à partir de 4e
+                ['Foto','Michel','M','vacataire',['ESP']],
+                ['Diaby','Carmen','F','vacataire',['ESP']],
+                // ALLEMAND (1) - LV2 minoritaire
+                ['N\'Guessan','Heinrich','M','vacataire',['ALL']],
+                // MATHEMATIQUES (4)
                 ['Nde','Noël','M','titulaire',['MATH']],
+                ['Diallo','Mamadou','M','titulaire',['MATH']],
+                ['Konaté','Issa','M','titulaire',['MATH']],
+                ['Yéo','Lassina','M','vacataire',['MATH']],
+                // PHYSIQUE-CHIMIE (3)
                 ['Kouame','Paul','M','titulaire',['PC']],
+                ['Bamba','Karim','M','titulaire',['PC']],
+                ['Coulibaly','Brahima','M','contractuel',['PC']],
+                // SVT (3)
                 ['Tuo','Irène','F','titulaire',['SVT']],
+                ['Coulibaly','Rachel','F','titulaire',['SVT']],
+                ['Adjoua','Marie','F','vacataire',['SVT']],
+                // EDHC (2) - collège uniquement
                 ['Due','Juliette','F','titulaire',['EDHC']],
+                ['Bakayoko','Awa','F','vacataire',['EDHC']],
+                // EPS (2) - tous niveaux
                 ['Diarraouba','Salif','M','contractuel',['EPS']],
-                ['Kouassi','Gedeon','M','titulaire',['COND']],
-                ['Boty','Armel','M','vacataire',['LECTURE','AP']],
+                ['Méité','Adama','M','contractuel',['EPS']],
+                // ARTS PLASTIQUES (1) - collège
+                ['Boty','Armel','M','vacataire',['AP']],
+                // PHILOSOPHIE (2) - 1ère + Tle (séries A fortes)
                 ['Nguessan','Patrick','M','vacataire',['PHILO']],
+                ['Sanogo','Étienne','M','titulaire',['PHILO']],
             ];
             $teachersByCode = [];
             foreach ($teacherRows as $i => [$nom,$prenom,$sexe,$statut,$disciplines]) {
@@ -333,17 +365,73 @@ Artisan::command('avia:reset-real-test {--etablissement-id=} {--all-schools} {--
                 }
             }
 
-            $plans = function (string $niveau): array {
-                $base = ['FR'=>4,'HG'=>2,'ANG'=>2,'MATH'=>3,'PC'=>2,'SVT'=>2,'EDHC'=>1,'EPS'=>1,'AP'=>1,'LECTURE'=>1,'AUTRE2'=>1,'COND'=>1];
-                if (in_array($niveau, ['4E','3E','2NDE','1ERE','TLE'], true)) $base += ['ESP'=>1,'ALL'=>1];
-                if (in_array($niveau, ['2NDE','1ERE','TLE'], true)) $base += ['PHILO'=>2];
-                return $base;
+            /**
+             * Matrice horaire officielle MENA Côte d'Ivoire (h/semaine).
+             * - Premier cycle : 6e/5e (LV1 anglais seul, pas de LV2, pas de PC)
+             *                  puis 4e/3e (LV2 espagnol + PC apparaissent).
+             * - Second cycle : 2nde tronc commun, puis 1ère/Tle avec séries
+             *                  A (littéraire), C (math forte) et D (math/SVT).
+             * Référence : arrêtés ministériels DESPS, volumes simplifiés.
+             */
+            $plans = function (string $niveauCode, string $classNom): array {
+                // Détection série A/C/D dans le nom (ex: "1ère D1", "Tle A2", "2nde C 1")
+                $serie = null;
+                if (preg_match('/(?:1ère|1ere|Tle|2nde)\s*([ACD])/iu', $classNom, $m)) {
+                    $serie = strtoupper($m[1]);
+                }
+
+                // 6e / 5e : pas de LV2, pas de PC
+                if (in_array($niveauCode, ['6E','5E'], true)) {
+                    return ['FR'=>5,'MATH'=>4,'HG'=>3,'ANG'=>4,'SVT'=>2,'EDHC'=>1,'EPS'=>2,'AP'=>1];
+                }
+                // 4e / 3e : LV2 (ESP par défaut) + PC apparaissent
+                if (in_array($niveauCode, ['4E','3E'], true)) {
+                    return ['FR'=>4,'MATH'=>4,'HG'=>3,'ANG'=>3,'ESP'=>4,'SVT'=>2,'PC'=>2,'EDHC'=>1,'EPS'=>2,'AP'=>1];
+                }
+                // 2nde : tronc commun (pas de PHILO)
+                if ($niveauCode === '2NDE') {
+                    if ($serie === 'A') {
+                        return ['FR'=>5,'MATH'=>3,'HG'=>4,'ANG'=>4,'ESP'=>3,'SVT'=>2,'PC'=>2,'EDHC'=>1,'EPS'=>2];
+                    }
+                    return ['FR'=>5,'MATH'=>5,'HG'=>3,'ANG'=>3,'ESP'=>3,'SVT'=>3,'PC'=>4,'EDHC'=>1,'EPS'=>2];
+                }
+                // 1ère par série
+                if ($niveauCode === '1ERE') {
+                    return match ($serie) {
+                        'A' => ['FR'=>5,'PHILO'=>4,'HG'=>4,'ANG'=>4,'ESP'=>4,'MATH'=>3,'SVT'=>2,'EPS'=>2],
+                        'C' => ['FR'=>4,'PHILO'=>2,'HG'=>3,'ANG'=>3,'ESP'=>2,'MATH'=>6,'PC'=>4,'SVT'=>2,'EPS'=>2],
+                        'D' => ['FR'=>4,'PHILO'=>2,'HG'=>3,'ANG'=>3,'ESP'=>2,'MATH'=>5,'PC'=>4,'SVT'=>4,'EPS'=>2],
+                        default => ['FR'=>4,'PHILO'=>2,'HG'=>3,'ANG'=>3,'ESP'=>2,'MATH'=>4,'PC'=>3,'SVT'=>3,'EPS'=>2],
+                    };
+                }
+                // Tle par série (FR : épreuve anticipée passée en 1ère → 0h en Tle)
+                if ($niveauCode === 'TLE') {
+                    return match ($serie) {
+                        'A' => ['PHILO'=>8,'HG'=>4,'ANG'=>4,'ESP'=>4,'MATH'=>3,'EPS'=>2],
+                        'C' => ['PHILO'=>2,'HG'=>2,'ANG'=>3,'ESP'=>2,'MATH'=>8,'PC'=>5,'EPS'=>2],
+                        'D' => ['PHILO'=>4,'HG'=>2,'ANG'=>3,'ESP'=>2,'MATH'=>6,'PC'=>4,'SVT'=>4,'EPS'=>2],
+                        default => ['PHILO'=>4,'HG'=>2,'ANG'=>3,'ESP'=>2,'MATH'=>5,'PC'=>3,'SVT'=>3,'EPS'=>2],
+                    };
+                }
+                return [];
             };
+
+            // Répartition équilibrée intra-matière : le moins chargé du pool prend
+            $teacherLoad = [];
+            $assignTeacher = function (array $pool) use (&$teacherLoad) {
+                if (empty($pool)) return null;
+                usort($pool, fn ($a, $b) => ($teacherLoad[$a] ?? 0) <=> ($teacherLoad[$b] ?? 0));
+                $picked = $pool[0];
+                $teacherLoad[$picked] = ($teacherLoad[$picked] ?? 0) + 1;
+                return $picked;
+            };
+
             foreach ($classes as $classeRow) {
-                foreach ($plans($classeRow['niveau']) as $code => $volume) {
+                foreach ($plans($classeRow['niveau'], $classeRow['nom']) as $code => $volume) {
                     $teacherPool = $teachersByCode[$code] ?? [];
                     if (empty($teacherPool) || empty($matiereIdsByCode[$code])) continue;
-                    $teacherId = $teacherPool[$summary['affectations'] % count($teacherPool)];
+                    $teacherId = $assignTeacher($teacherPool);
+                    if (!$teacherId) continue;
                     $upsert('affectations', ['enseignant_id'=>$teacherId,'classe_id'=>$classeRow['id'],'matiere_id'=>$matiereIdsByCode[$code],'annee_scolaire_id'=>$annee->id], [
                         'enseignant_id'=>$teacherId,
                         'classe_id'=>$classeRow['id'],
